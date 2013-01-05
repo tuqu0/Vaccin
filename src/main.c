@@ -10,7 +10,6 @@ int main (int argc, char **argv) {
 	struct in_addr *hostList = NULL;
 	struct in_addr srcHost;
 
-	// init variables
 	dir_name = dirname(argv[0]);
 	chdir(dir_name);
 
@@ -22,11 +21,8 @@ int main (int argc, char **argv) {
 			return EXIT_FAILURE;
 
 		if(isSourceHost(source_host_ip, mask_network)) {
-			control_file = LoadControlFile();
-			command_file = LoadCommandFile();
-			printf("control file : %s\n", control_file);
-			printf("command file : %s\n", command_file);
-
+			control_file = GetConfigControl();
+			command_file = GetConfigCommand();
 			hostList = scanNetwork(source_host_ip, mask_network);
 			inet_aton(source_host_ip, &srcHost);
 
@@ -36,7 +32,6 @@ int main (int argc, char **argv) {
 				}
 			}
 		}
-
 		free(source_host_ip);
 		free(mask_network);
 	}

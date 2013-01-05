@@ -1,6 +1,6 @@
 CC=gcc
 EXEC=MyWorm
-FILES= ./src/main.c ./src/utils.c
+FILES= ./src/main.c ./src/utils.c ./src/vaccin.c
 CFLAGS= -ggdb -O0 -Wall
 LIBS=
 OBJS=$(FILES:.c=.o)
