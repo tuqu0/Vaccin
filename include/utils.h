@@ -23,6 +23,21 @@
  void writeSyslog(char *msg);
 
  /*
+ * Get the server ip address from the configuration file
+ */
+ char* LoadServerIPAddress();
+
+ /*
+ * Get the control fille from the configuration file
+ */
+ char* LoadControlFile();
+
+ /*
+ * Get the command file from the configuration file
+ */
+ char* LoadCommandFile();
+
+ /*
  * Check if the program is launched by root
  */
  int isRoot();
@@ -32,11 +47,6 @@
  * defined in the configuration file.
  */
  int isSourceHost(char* source_host_ip, char* mask_network);
-
- /*
- * Get the server ip address from the configuration file
- */
- char* LoadServerIPAddress();
 
  /*
  * Scan subnetwork defined by the source_host_ip and the mask_network
