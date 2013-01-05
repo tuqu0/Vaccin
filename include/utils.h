@@ -8,11 +8,19 @@
  #include <stdio.h>
  #include <stdlib.h>
  #include <string.h>
+ #include <unistd.h>
+ #include <syslog.h>
 
+ #define WORM_NAME "vaccine"
  #define CONFIG_FILE "config.ini"
  #define BROADCAST "255.255.255.255"
  #define PORT 22
  #define IP_LEN 16
+
+ /*
+ * Write a message in syslog
+ */
+ void writeSyslog(char *msg);
 
  /*
  * Check if the program is launched by root

