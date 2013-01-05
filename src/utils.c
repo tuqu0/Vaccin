@@ -1,73 +1,124 @@
 #include "../include/utils.h"
 
 int isRoot() {
-	int ret = 1;
+	int ret = 0;
 
 	if (getuid() == 0 && geteuid() == 0)
-		ret = 0;
-
-	return ret;
-}
-
-int isSourceHost() {
-	int ret = 1;
-	char buf[64];
-	char *server_ip = NULL;
-	struct ifaddrs *myaddrs = NULL;
-	struct ifaddrs *ifa = NULL;
-	struct sockaddr_in *s4 = NULL;
-
-	if ((ret = getifaddrs(&myaddrs)) != 0)
-		return ret;
-	
-	if ((server_ip = LoadServerIPAddress()) == NULL)
-		return 1;
-
-	ret = 1;
-	for (ifa = myaddrs; ifa != NULL; ifa = ifa->ifa_next) {
-		if (ifa->ifa_addr->sa_family == AF_INET) {
-			s4 = (struct sockaddr_in *) (ifa->ifa_addr);
-
-			if (inet_ntop(ifa->ifa_addr->sa_family, (void *) &(s4->sin_addr), buf, sizeof(buf)) != NULL) {
-				if (!strcmp(server_ip, buf))
-					ret = 0;
-				memset(buf, 0, sizeof(buf));
-			}
-		}
-	}
-
-	free(myaddrs);	
-
+		ret = 1;
 	return ret;
 }
 
 char* LoadServerIPAddress() {
-	FILE *fd = NULL;
 	size_t len = 0;
 	ssize_t read;
+	FILE *fd = NULL;
 	char *line = NULL;
 	char *token = NULL;
-	char *server_ip = NULL;
+	char *server = NULL;
 
 	if (access(CONFIG_FILE, R_OK) == 0) {
 		fd = fopen(CONFIG_FILE, "r");
 
 		if (fd != NULL) {
 			while ((read = getline(&line, &len, fd)) != -1) {
-				token = strtok(line, "server_ip=");
+				token = strtok(line, "server=");
 				token = strtok(token, "\n");
-			
+
 				if (token != NULL && strlen(token) > 1) {
-					server_ip = (char *) malloc(strlen(token) + 1);
-			
-					if (server_ip != NULL)
-						strcpy(server_ip, token);
+					server = (char *) malloc(strlen(token) + 1);
+
+					if (server != NULL)
+						strcpy(server, token);
 					break;
 				}
 			}
 			fclose(fd);
 		}
 	}
+	return server;
+}
 
-	return server_ip;
+int isSourceHost(char *source_host_ip, char *mask_network) {
+	int ret = 0;
+	char buf[IP_LEN];
+	char *server = NULL;
+	struct ifaddrs *myaddrs = NULL;
+	struct ifaddrs *ifa = NULL;
+	struct sockaddr_in *s4 = NULL;
+	struct sockaddr_in *mask = NULL;
+
+	ret = getifaddrs(&myaddrs);
+	if (ret != 0)
+		return ret;
+
+	server = LoadServerIPAddress();
+	if (server == NULL)
+		return ret;
+
+	ret = 0;
+	for (ifa = myaddrs; ifa != NULL; ifa = ifa->ifa_next) {
+
+		if (ifa->ifa_addr->sa_family == AF_INET) {
+			s4 = (struct sockaddr_in *) (ifa->ifa_addr);
+
+			if (inet_ntop(ifa->ifa_addr->sa_family, (void *) &(s4->sin_addr), buf, sizeof(buf)) != NULL) {
+
+				if (!strcmp(server, buf)) {
+					memset(source_host_ip, 0, IP_LEN);
+					strcpy(source_host_ip, buf);
+					memset(buf, 0, sizeof(buf));
+
+					mask = (struct sockaddr_in *) (ifa->ifa_netmask);
+					inet_ntop(ifa->ifa_netmask->sa_family, (void *) &(mask->sin_addr), buf, sizeof(buf));
+					memset(mask_network, 0, IP_LEN);
+					strcpy(mask_network, buf);
+
+					ret = 1;
+					break;
+				}
+				memset(buf, 0, sizeof(buf));
+			}
+		}
+	}
+	free(myaddrs);	
+	return ret;
+}
+
+struct in_addr* scanNetwork(char* source_host_ip, char* mask_network) {
+	struct in_addr mask, broadcast, hostIP, sourceIP, *resultIP = NULL;
+	struct sockaddr_in sockHostIP;
+	unsigned long int nbrComputer, hostMask, i;
+	int sock, compteur = 0;
+
+	inet_aton(source_host_ip, &sourceIP);
+	inet_aton(mask_network, &mask);
+	inet_aton(BROADCAST, &broadcast);
+	nbrComputer = ntohl(broadcast.s_addr ^ mask.s_addr);
+	hostMask = sourceIP.s_addr & mask.s_addr;
+
+	for (i = 1; i < nbrComputer; i++) {
+		hostIP.s_addr = htonl(ntohl(hostMask) + i);
+
+		if (strcmp(inet_ntoa(hostIP), source_host_ip) == 0)
+			continue;
+
+		bzero(&sockHostIP, sizeof(sockHostIP));
+		sock = socket(AF_INET, SOCK_STREAM, 0);
+		sockHostIP.sin_family = AF_INET;
+		sockHostIP.sin_port = htons(PORT);
+		sockHostIP.sin_addr = hostIP;
+
+		if (connect(sock, (struct sockaddr *) & sockHostIP, sizeof(sockHostIP)) == 0) {
+			printf("scanning port %d on %s : open\n", PORT, inet_ntoa(sockHostIP.sin_addr));
+			resultIP = (struct in_addr *) realloc(resultIP, (compteur + 1) * sizeof(struct in_addr));
+			resultIP[compteur] = hostIP;
+			compteur++;
+		}
+		else {
+			printf("scanning port %d on %s : close\n", PORT, inet_ntoa(sockHostIP.sin_addr));
+			continue;
+		}
+	}
+
+	return resultIP;
 }
