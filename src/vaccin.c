@@ -120,3 +120,29 @@ struct in_addr* scanNetwork(char* source_host_ip, char* mask_network) {
 	}
 	return resultIP;
 }
+
+int colonize(char *host, char *file) {
+	char *syslog_ = NULL;
+	char command[4096];
+	int ret = 0;
+
+	if (access(SCP, R_OK) != 0 || access(SSH, R_OK) != 0)
+		return ret;
+
+	syslog_ = (char *) malloc(strlen("## colonization of ") + strlen(host));
+	if (syslog_ != NULL) {
+		strcpy(syslog_, "## colonization of ");
+		strcat(syslog_, host);
+		writeSyslog(syslog_);
+		free(syslog_);
+	}
+	sprintf(command, "%s -P %d %s root@%s:%s", SCP, PORT, file, host, CLIENT_PATH);
+	printf("command : %s\n", command);
+	ret = system(command);
+	if (ret == -1)
+		return 0;
+	else
+		ret = 1;
+
+	return ret;
+}

