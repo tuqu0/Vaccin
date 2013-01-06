@@ -20,9 +20,6 @@ int main (int argc, char **argv) {
 	dir_name = dirname(argv[0]);
 	chdir(dir_name);
 
-	colonize("192.168.1.90", path);
-	return 0;
-
 	// if the user is root
 	if (isRoot()) {
 		source_host_ip = (char *) malloc(sizeof(char) * IP_LEN);
