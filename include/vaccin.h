@@ -10,7 +10,9 @@
  #include <sys/types.h>
  #include <ifaddrs.h>
  #include <arpa/inet.h>
- 
+
+ #define RET_SUCCESS 1
+ #define RET_FAILURE 0 
  #define BROADCAST "255.255.255.255"
  #define PORT 22
  #define IP_LEN 16

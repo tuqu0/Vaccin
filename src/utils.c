@@ -14,11 +14,14 @@ char* GetConfigServer() {
 	char *token = NULL;
 	char *server = NULL;
 
+	// try to read the configuration file
 	if (access(CONFIG_FILE, R_OK) == 0) {
 		fd = fopen(CONFIG_FILE, "r");
 		if (fd != NULL) {
 			while ((read = getline(&line, &len, fd)) != -1) {
+				// if the field "server" is found
 				if (strstr(line, "server=") != NULL) {
+					// get value defined for field "server"
 					token = strtok(line, "=");
 					token = strtok(NULL, "\r\n");
 					if (token != NULL && strlen(token) > 1) {
@@ -43,11 +46,14 @@ char* GetConfigControl() {
 	char *token = NULL;
 	char *control = NULL;
 
+	// try to read the configuration file
 	if (access(CONFIG_FILE, R_OK) == 0) {
 		fd = fopen(CONFIG_FILE, "r");
 		if (fd != NULL) {
 			while ((read = getline(&line, &len, fd)) != -1) {
+				// if the field "control" is found
 				if (strstr(line, "control=") != NULL) {
+					// get value defined for field "control"
 					token = strtok(line, "=");
 					token = strtok(NULL, "\r\n");
 					if (token != NULL && strlen(token) > 1) {
@@ -72,11 +78,14 @@ char* GetConfigCommand() {
 	char *token = NULL;
 	char *command = NULL;
 
+	// try to read the configuration file
 	if (access(CONFIG_FILE, R_OK) == 0) {
 		fd = fopen(CONFIG_FILE, "r");
 		if (fd != NULL) {
 			while ((read = getline(&line, &len, fd)) != -1) {
+				// if the field "command" is found
 				if (strstr(line, "command=") != NULL) {
+					// get value defined for field "command"
 					token = strtok(line, "=");
 					token = strtok(NULL, "\r\n");
 					if (token != NULL && strlen(token) > 1) {
@@ -92,3 +101,4 @@ char* GetConfigCommand() {
 	}
 	return command;
 }
+
