@@ -24,8 +24,6 @@ int main (int argc, char **argv) {
 		if (source_host_ip == NULL || mask_network == NULL)
 			return EXIT_FAILURE;
 
-		printf("isSrcHost : %d\n", isSourceHost(source_host_ip, mask_network));
-		return 0;
 		if(isSourceHost(source_host_ip, mask_network)) {
 			control_file = GetConfigControl();
 			command_file = GetConfigCommand();
