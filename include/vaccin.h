@@ -6,6 +6,7 @@
  #include <string.h>
  #include <stdio.h>
  #include <stdlib.h>
+ #include <libgen.h>
  #include <sys/types.h>
  #include <ifaddrs.h>
  #include <arpa/inet.h>
@@ -32,6 +33,11 @@
  * Scan subnetwork defined by the source_host_ip and the mask_network
  */
  struct in_addr* scanNetwork(char* source_host_ip, char* mask_network);
+
+ /*
+ * Check if the given host is already colonized
+ */
+ int isAlreadyColonize(char *host, char *program);
 
  /*
  * Try to establish an SSH connection on the given host and upload the given file

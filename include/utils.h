@@ -7,7 +7,7 @@
  #include <string.h>
  #include <stdlib.h>
 
- #define WORM_NAME "vaccin"
+ #define PROGRAM_ID "vaccin"
  #define CONFIG_FILE "config.ini"
 
  /*

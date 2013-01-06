@@ -1,7 +1,7 @@
 #include "../include/utils.h"
 
 void writeSyslog(char *msg) {
-	openlog(WORM_NAME, LOG_PID, LOG_USER);
+	openlog(PROGRAM_ID, LOG_PID, LOG_USER);
 	syslog(LOG_NOTICE, msg);
 	closelog();
 }
