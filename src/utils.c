@@ -1,104 +1,37 @@
 #include "../include/utils.h"
 
-void writeSyslog(char *msg) {
-	openlog(PROGRAM_ID, LOG_PID, LOG_USER);
+void syslogMsg(char *msg)
+{
+	// write a message in syslog
+	openlog(SYSLOG_PROGRAM, LOG_PID, LOG_USER);
 	syslog(LOG_NOTICE, msg);
 	closelog();
 }
 
-char* GetConfigServer() {
-	size_t len = 0;
-	ssize_t read;
-	FILE *fd = NULL;
-	char *line = NULL;
-	char *token = NULL;
-	char *server = NULL;
+dictionary* GetConfig()
+{
+	int portSSH = -1;
+	char *ip , *command, *control, *targetPath, *crontab, *scp, *ssh, *broadcast;
+	dictionary *dico;
 
-	// try to read the configuration file
-	if (access(CONFIG_FILE, R_OK) == 0) {
-		fd = fopen(CONFIG_FILE, "r");
-		if (fd != NULL) {
-			while ((read = getline(&line, &len, fd)) != -1) {
-				// if the field "server" is found
-				if (strstr(line, "server=") != NULL) {
-					// get value defined for field "server"
-					token = strtok(line, "=");
-					token = strtok(NULL, "\r\n");
-					if (token != NULL && strlen(token) > 1) {
-						server = (char *) malloc(strlen(token) + 1);
-						if (server != NULL)
-							strcpy(server, token);
-						break;
-					}
-				}
-			}
-			fclose(fd);
-		}
+	// load the configuration file
+	dico = iniparser_load(CONFIG_FILE);
+	
+	// get parameters
+	ip = iniparser_getstring(dico, "Administrator:ip", NULL);
+	command = iniparser_getstring(dico, "Administrator:command", NULL);
+	control = iniparser_getstring(dico, "Target:control", NULL);
+	targetPath = iniparser_getstring(dico, "Target:targetPath", NULL);
+	crontab = iniparser_getstring(dico, "Target:crontab", NULL);
+	scp = iniparser_getstring(dico, "Network:scp", NULL);
+	ssh = iniparser_getstring(dico, "Network:ssh", NULL);
+	portSSH = iniparser_getint(dico, "Network:portSSH", -1);
+	broadcast = iniparser_getstring(dico, "Network:broadcast", NULL);
+
+	if (ip != NULL && command != NULL && control != NULL && targetPath != NULL && crontab != NULL && scp != NULL && ssh != NULL && portSSH != -1 && broadcast != NULL) {
+		return dico;
 	}
-	return server;
-}
-
-char* GetConfigControl() {
-	size_t len = 0;
-	ssize_t read;
-	FILE *fd = NULL;
-	char *line = NULL;
-	char *token = NULL;
-	char *control = NULL;
-
-	// try to read the configuration file
-	if (access(CONFIG_FILE, R_OK) == 0) {
-		fd = fopen(CONFIG_FILE, "r");
-		if (fd != NULL) {
-			while ((read = getline(&line, &len, fd)) != -1) {
-				// if the field "control" is found
-				if (strstr(line, "control=") != NULL) {
-					// get value defined for field "control"
-					token = strtok(line, "=");
-					token = strtok(NULL, "\r\n");
-					if (token != NULL && strlen(token) > 1) {
-						control = (char *) malloc(strlen(token) + 1);
-						if (control != NULL)
-							strcpy(control, token);
-						break;
-					}
-				}
-			}
-			fclose(fd);
-		}
+	else {
+		exit(EXIT_FAILURE);
 	}
-	return control;
 }
-
-char* GetConfigCommand() {
-	size_t len = 0;
-	ssize_t read;
-	FILE *fd = NULL;
-	char *line = NULL;
-	char *token = NULL;
-	char *command = NULL;
-
-	// try to read the configuration file
-	if (access(CONFIG_FILE, R_OK) == 0) {
-		fd = fopen(CONFIG_FILE, "r");
-		if (fd != NULL) {
-			while ((read = getline(&line, &len, fd)) != -1) {
-				// if the field "command" is found
-				if (strstr(line, "command=") != NULL) {
-					// get value defined for field "command"
-					token = strtok(line, "=");
-					token = strtok(NULL, "\r\n");
-					if (token != NULL && strlen(token) > 1) {
-						command = (char *) malloc(strlen(token) + 1);
-						if (command != NULL)
-							strcpy(command, token);
-						break;
-					}
-				}
-			}
-			fclose(fd);
-		}
-	}
-	return command;
-}
-

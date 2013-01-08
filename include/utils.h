@@ -1,33 +1,23 @@
 #ifndef UTILS_H
 #define UTILS_H
- 
+
+ #include "dictionary.h"
+ #include "iniparser.h" 
  #include <syslog.h>
- #include <unistd.h>
- #include <stdio.h>
- #include <string.h>
  #include <stdlib.h>
+ #include <stdbool.h>
 
- #define PROGRAM_ID "vaccin"
  #define CONFIG_FILE "config.ini"
+ #define SYSLOG_PROGRAM "vaccin"
 
  /*
- * Write a message in syslog
+ * Write a message in syslog.
  */
- void writeSyslog(char *msg);
+ void syslogMsg(char *msg);
 
  /*
- * Get the server ip address from the configuration file
+ * Read and check the configuration file
  */
- char* GetConfigServer();
-
- /*
- * Get the control fille from the configuration file
- */
- char* GetConfigControl();
-
- /*
- * Get the command file from the configuration file
- */
- char* GetConfigCommand();
+ dictionary* GetConfig();
 
 #endif /* UTILS_H */

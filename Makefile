@@ -2,7 +2,8 @@ CC=gcc
 EXEC=vaccin
 FILES= ./src/main.c ./src/utils.c ./src/vaccin.c
 CFLAGS= -ggdb -O0 -Wall
-LIBS=
+LDFLAGS= -L ./lib/
+LIBS= ./lib/libiniparser.a
 OBJS=$(FILES:.c=.o)
 DIST= puydoyeux_vincent-vaccin
 
