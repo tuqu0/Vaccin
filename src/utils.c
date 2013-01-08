@@ -3,7 +3,7 @@
 void syslogMsg(char *msg)
 {
 	// write a message in syslog
-	openlog(SYSLOG_PROGRAM, LOG_PID, LOG_USER);
+	openlog("vaccin", LOG_PID, LOG_USER);
 	syslog(LOG_NOTICE, msg);
 	closelog();
 }
@@ -16,6 +16,8 @@ dictionary* GetConfig()
 
 	// load the configuration file
 	dico = iniparser_load(CONFIG_FILE);
+	if (dico == NULL)
+		exit(EXIT_FAILURE);
 	
 	// get parameters
 	ip = iniparser_getstring(dico, "Administrator:ip", NULL);

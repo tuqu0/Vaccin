@@ -8,7 +8,6 @@
  #include <stdbool.h>
 
  #define CONFIG_FILE "config.ini"
- #define SYSLOG_PROGRAM "vaccin"
 
  /*
  * Write a message in syslog.

@@ -61,17 +61,8 @@ int main (int argc, char **argv) {
 			}
 		}
 	}
-	free(ip);
-	free(command);
-	free(control);
-	free(targetPath);
-	free(crontab);
-	free(scp);
-	free(ssh);
-	free(broadcast);
-	free(dico);
+	iniparser_freedict(dico);
 
 	return 0;
-
 }
 
