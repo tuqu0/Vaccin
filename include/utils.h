@@ -1,5 +1,5 @@
 #ifndef UTILS_H
-#define UTILS_H
+ #define UTILS_H
 
  #include "dictionary.h"
  #include "iniparser.h" 
@@ -8,15 +8,20 @@
  #include <stdbool.h>
 
  #define CONFIG_FILE "config.ini"
+  
+ /*
+ *  Parameters of the configuration file
+ */
+ extern dictionary *params;
 
  /*
- * Write a message in syslog.
+ *  Read and check the configuration file
+ */
+ void readConfig();
+
+ /*
+ * Write a message in syslog
  */
  void syslogMsg(char *msg);
-
- /*
- * Read and check the configuration file
- */
- dictionary* GetConfig();
 
 #endif /* UTILS_H */

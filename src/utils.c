@@ -1,39 +1,39 @@
 #include "../include/utils.h"
 
-void syslogMsg(char *msg)
+void readConfig()
 {
-	// write a message in syslog
-	openlog("vaccin", LOG_PID, LOG_USER);
-	syslog(LOG_NOTICE, msg);
-	closelog();
-}
+	int ssh_port = -1;
+	char *ip_admin, *command, *control, *target_dir, *crontab;
+	char *scp_path, *ssh_path, *broadcast;
 
-dictionary* GetConfig()
-{
-	int portSSH = -1;
-	char *ip , *command, *control, *targetPath, *crontab, *scp, *ssh, *broadcast;
-	dictionary *dico;
-
-	// load the configuration file
-	dico = iniparser_load(CONFIG_FILE);
-	if (dico == NULL)
+	// load the configuration file	
+	params = iniparser_load(CONFIG_FILE);
+	if (params == NULL)
 		exit(EXIT_FAILURE);
 	
 	// get parameters
-	ip = iniparser_getstring(dico, "Administrator:ip", NULL);
-	command = iniparser_getstring(dico, "Administrator:command", NULL);
-	control = iniparser_getstring(dico, "Target:control", NULL);
-	targetPath = iniparser_getstring(dico, "Target:targetPath", NULL);
-	crontab = iniparser_getstring(dico, "Target:crontab", NULL);
-	scp = iniparser_getstring(dico, "Network:scp", NULL);
-	ssh = iniparser_getstring(dico, "Network:ssh", NULL);
-	portSSH = iniparser_getint(dico, "Network:portSSH", -1);
-	broadcast = iniparser_getstring(dico, "Network:broadcast", NULL);
+	ip_admin = iniparser_getstring(params, "Administrator:ip", NULL);
+	command = iniparser_getstring(params, \
+				      "Administrator:command", NULL);
+	control = iniparser_getstring(params, "Target:control", NULL);
+	target_dir = iniparser_getstring(params, "Target:targetPath", NULL);
+	crontab = iniparser_getstring(params, "Target:crontab", NULL);
+	scp_path = iniparser_getstring(params, "Network:scp", NULL);
+	ssh_path = iniparser_getstring(params, "Network:ssh", NULL);
+	ssh_port = iniparser_getint(params, "Network:portSSH", -1);
+	broadcast = iniparser_getstring(params, "Network:broadcast", NULL);
 
-	if (ip != NULL && command != NULL && control != NULL && targetPath != NULL && crontab != NULL && scp != NULL && ssh != NULL && portSSH != -1 && broadcast != NULL) {
-		return dico;
-	}
-	else {
+	if (ip_admin == NULL || command == NULL || control == NULL || \
+	    target_dir == NULL || crontab == NULL || scp_path == NULL || \
+	    ssh_path == NULL || ssh_port == -1 || broadcast == NULL) {
+		iniparser_freedict(params);
 		exit(EXIT_FAILURE);
 	}
+}
+
+void syslogMsg(char *msg)
+{
+	openlog("vaccin", LOG_PID, LOG_USER);
+	syslog(LOG_NOTICE, msg);
+	closelog();
 }

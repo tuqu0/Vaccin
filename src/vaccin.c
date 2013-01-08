@@ -6,7 +6,6 @@ bool isRoot()
 	
 	// check if the uid and euid are equals to 0
 	if (getuid() == 0 && geteuid() == 0) {
-		// syslog message
 		syslogMsg("## Launching vaccin by root");
 		ret = true;
 	}
@@ -14,12 +13,16 @@ bool isRoot()
 	return ret;
 }
 
-bool isSourceHost(char *adminIP)
+bool isSourceHost()
 {
 	bool ret = false;
 	char buf[IP_LEN];
+	char *ip_admin;
 	struct ifaddrs *myaddrs, *ifa;
 	struct sockaddr_in *s4;
+
+	// get the administrator ip address
+	ip_admin = iniparser_getstring(params, "Administrator:ip", NULL);
 
 	// get all network interfaces available
 	if (getifaddrs(&myaddrs) != 0)
@@ -33,9 +36,8 @@ bool isSourceHost(char *adminIP)
 			// if the interface has an ip address defined
 			if (inet_ntop(ifa->ifa_addr->sa_family, (void *) &(s4->sin_addr), buf, sizeof(buf)) != NULL) {
 				// if the ip address of the interface and the admin ip address are identical
-				if (!strcmp(adminIP, buf)) {
+				if (!strcmp(ip_admin, buf)) {
 					ret = true;
-					// syslog message
 					syslogMsg("## We are the administrator's host");
 					break;
 				}
@@ -48,77 +50,44 @@ bool isSourceHost(char *adminIP)
 	return ret;
 }
 
-char* getNetmask(char *ip)
+struct in_addr* scanNetwork()
 {
-	char buf[IP_LEN];
-	char *netMask = NULL;
-	struct ifaddrs *myaddrs, *ifa;
-	struct sockaddr_in *s4, *mask;
-
-	// get all network interfaces available
-	if (getifaddrs(&myaddrs) != 0)
-		return NULL;
-
-	// for each network interface
-	for (ifa = myaddrs; ifa != NULL; ifa = ifa->ifa_next) {
-		// if the interface uses TCP/IP
-		if (ifa->ifa_addr->sa_family == AF_INET) {
-			s4 = (struct sockaddr_in *) (ifa->ifa_addr);
-			// if the interface has an ip address defined
-			if (inet_ntop(ifa->ifa_addr->sa_family, (void *) &(s4->sin_addr), buf, sizeof(buf)) != NULL) {
-				// if the ip address of the interface and the admin ip address are identical
-				if (!strcmp(ip, buf)) {
-					// get the network mask address
-					mask = (struct sockaddr_in *) (ifa->ifa_netmask);
-					inet_ntop(ifa->ifa_netmask->sa_family, (void *) &(mask->sin_addr), buf, sizeof(buf));
-					netMask = (char *) malloc(strlen(buf) + 1);
-					if (netMask != NULL) {
-						memset(netMask, 0, strlen(buf) + 1);
-						strcpy(netMask, buf);
-					}
-
-					break;
-				}
-				memset(buf, 0, sizeof(buf));
-			}
-		}
-	}
-	free(myaddrs);
-
-	return netMask;
-}
-
-struct in_addr* scanNetwork(char *adminIP, char *broadcastAddr, int portSSH)
-{
-	struct sockaddr_in sockHostIP;
+	int ssh_port, sock, compteur = 0;
 	unsigned long int nbrComputer, hostMask, i;
-	int sock, compteur = 0;
 	char nbrComputer_[80];
-	char *msg, *adminNetworkMask;
+	struct sockaddr_in sockHostIP;
+	char *msg, *ip_admin, *mask_admin, *broadcast_addr;
 	struct in_addr mask, broadcast, hostIP, sourceIP, *resultIP = NULL;
 
-	// syslog message
 	syslogMsg("## Launching network scan");
 
-	// get the network mask address for the admin ip address
-	adminNetworkMask = getNetmask(adminIP);
-	if (adminNetworkMask == NULL)
+	// get the administrator ip address
+	ip_admin = iniparser_getstring(params, "Administrator:ip", NULL);
+
+	// get the administrator ip address
+	broadcast_addr = iniparser_getstring(params, "Network:broadcast", NULL);
+
+	// get the ssh port
+	ssh_port = iniparser_getint(params, "Network:portSSH", -1);
+
+	// get the administrator mask address
+	mask_admin =  getNetworkMask(ip_admin);
+	if (mask_admin == NULL)
 		return NULL;
 
 	// convert the admin ip address in the Internet dot notation
-	inet_aton(adminIP, &sourceIP);
+	inet_aton(ip_admin, &sourceIP);
 
 	// convert the admin network mask address in the Internet dot notation
-	inet_aton(adminNetworkMask, &mask);
+	inet_aton(mask_admin, &mask);
 
 	// convert the broadcast address in the Internet dot notation
-	inet_aton(broadcastAddr, &broadcast);
+	inet_aton(broadcast_addr, &broadcast);
 
 	// get the number of hosts available
 	nbrComputer = ntohl(broadcast.s_addr ^ mask.s_addr);
 	hostMask = sourceIP.s_addr & mask.s_addr;
 
-	// syslog message
 	sprintf(nbrComputer_, "%lu", nbrComputer);
 	msg = (char *) malloc(sizeof("## Maximal number of hosts on this network : ") + strlen(nbrComputer_) + 1);
 	if (msg != NULL) {
@@ -133,23 +102,22 @@ struct in_addr* scanNetwork(char *adminIP, char *broadcastAddr, int portSSH)
 		// get the target ip address
 		hostIP.s_addr = htonl(ntohl(hostMask) + i);
 		// if the target ip address and the admin ip address are identical
-		if (strcmp(inet_ntoa(hostIP), adminIP) == 0) {
-			// syslog message
-			msg = (char *) malloc(sizeof("## Host administrator found : ") + strlen(adminIP) + 1);
+		if (!strcmp(inet_ntoa(hostIP), ip_admin)) {
+			msg = (char *) malloc(sizeof("## Host administrator found : ") + strlen(ip_admin) + 1);
 			if (msg != NULL) {
 				strcpy(msg, "## Host administrator found : ");
-				strcat(msg, adminIP);
+				strcat(msg, ip_admin);
 				syslogMsg(msg);
 				free(msg);
 			}
 			continue;
 		}
 
-		// try to connect to the target on port tcp/22
+		// try to connect on the port tcp/22 of the target
 		bzero(&sockHostIP, sizeof(sockHostIP));
 		sock = socket(AF_INET, SOCK_STREAM, 0);
 		sockHostIP.sin_family = AF_INET;
-		sockHostIP.sin_port = htons(portSSH);
+		sockHostIP.sin_port = htons(ssh_port);
 		sockHostIP.sin_addr = hostIP;
 
 		// if the port 22 is open
@@ -159,8 +127,8 @@ struct in_addr* scanNetwork(char *adminIP, char *broadcastAddr, int portSSH)
 			resultIP[compteur] = hostIP;
 			compteur++;
 
-			// syslog message
-			msg = (char *) malloc(strlen(inet_ntoa(sockHostIP.sin_addr)) + sizeof(" tested and ssh port is open") + 4);
+			msg = (char *) malloc(strlen(inet_ntoa(sockHostIP.sin_addr)) + \
+						sizeof(" tested and ssh port is open") + 4);
 			if (msg != NULL) {
 				strcpy(msg, "## ");
 				strcat(msg, inet_ntoa(sockHostIP.sin_addr));
@@ -182,106 +150,102 @@ struct in_addr* scanNetwork(char *adminIP, char *broadcastAddr, int portSSH)
 			continue;
 		}
 	}
-	free(adminIP);
-	free(adminNetworkMask);
-	free(broadcastAddr);
 
 	return resultIP;
 }
 
-bool isAlreadyColonized(char *host, char *programName, char *ssh, int portSSH, char *dstDir)
+bool isAlreadyColonized(char *target_ip, char *worm_name)
 {
 	bool ret = false;
+	int ssh_port;
 	char command[4096];
-	char *programPath;
+	char *ssh_path, *target_dir, *target_worm_path;
+	
+	// get the target worm directory
+	target_dir = iniparser_getstring(params, "Target:targetPath", NULL);
 
-	// init
-	programPath = (char *) malloc(strlen(dstDir) + strlen(programName) + 1);
-	if (programPath == NULL)
+	// get the target worm path
+	target_worm_path = (char *) malloc(strlen(target_dir) + strlen(worm_name) + 1);
+	if (target_worm_path == NULL)
 		return ret;
-	// concat the target path for the program with the program name
-	strcpy(programPath, dstDir);
-	strcat(programPath, programName);
-	sprintf(command, "%s -p %d %s \"test -f %s\"", ssh, portSSH, host, programPath);
-	free(programPath);
-	// test if the worm is present on the remote host
+	strcpy(target_worm_path, target_dir);
+	strcat(target_worm_path, worm_name);
+
+	// get the ssh program path
+	ssh_path = iniparser_getstring(params, "Network:ssh", NULL);
+
+	// get the ssh port
+	ssh_port = iniparser_getint(params, "Network:portSSH", -1);
+	
+	// test if the worm is present on the target host
+	sprintf(command, "%s -p %d %s \"test -f %s\"", ssh_path, ssh_port, target_ip, target_worm_path);
+	free(target_worm_path);
 	if (system(command) == 0)
 		ret = true;
 
 	return ret;
 }
 
-bool colonize(char *host, char *sshPath, int portSSH, char *scpPath, char *srcFile, char *dstDir, char *crontab)
+bool colonize(char *target_ip, char *worm_name)
 {
 	bool ret = false;
 	bool exec = false;
-	char *msg, *srcDir, *srcConfig, *dstFile;
+	int ssh_port;
+	char *msg, *target_dir, *target_worm_path, *scp_path;
 
-	// get the directory of the worm on the administrator host
-	srcDir = (char *) malloc(strlen(dirname(srcFile)));
-	if (srcDir == NULL)
-		return ret;
-	strcpy(srcDir, dirname(srcFile));
-
-	// get the path of the configuration file on the administrator host
-	srcConfig = (char *) malloc(strlen(srcDir) + strlen(CONFIG_FILE) + 2);
-	if (srcConfig == NULL)
-		return ret;
-	strcpy(srcConfig, srcDir);
-	strcat(srcConfig, "/");
-	strcat(srcConfig, CONFIG_FILE);
-
-	// get the target path of the worm
-	dstFile = (char *) malloc(strlen(dstDir) + strlen(basename(srcFile)) + 1);
-	if (dstFile == NULL)
-		return ret;
-	strcpy(dstFile, dstDir);
-	strcat(dstFile, basename(srcFile));
-
-	// syslog message
-	msg = (char *) malloc(sizeof("## colonization of ") + strlen(host) + 1);
+	msg = (char *) malloc(sizeof("## colonization of ") + strlen(target_ip) + 1);
 	if (msg != NULL) {
 		strcpy(msg, "## colonization of ");
-		strcat(msg, host);
+		strcat(msg, target_ip);
 		syslogMsg(msg);
 		free(msg);
 	}
-	// copy the program on the target host
-	exec = uploadFile(srcFile, dstDir, host, scpPath, portSSH);
+
+	// get the worm directory on the target host
+	target_dir = iniparser_getstring(params, "Target:targetPath", NULL);
+
+	// get the worm path on the target host
+	target_worm_path = (char *) malloc(strlen(target_dir) + strlen(basename(worm_name)) + 1);
+	if (target_worm_path == NULL)
+		return ret;
+	strcpy(target_worm_path, target_dir);
+	strcat(target_worm_path, worm_name);
+
+	// copy the worm on the target host
+	exec = uploadFile(worm_name, target_dir, target_ip);
 	if (exec) {
 		// copy the configuration file on the target host
-		exec = uploadFile(srcConfig, dstDir, host, scpPath, portSSH);
+		exec = uploadFile(CONFIG_FILE, target_dir, target_ip);
 		if (exec) {
-			// syslog message
-			msg = (char *) malloc(sizeof("## worm copy on %s") + strlen(host) + 1);
+			msg = (char *) malloc(sizeof("## worm copy on %s") + strlen(target_ip) + 1);
 			if (msg != NULL) {
 				strcpy(msg, "## worm copy on ");
-				strcat(msg, host);
+				strcat(msg, target_ip);
 				syslogMsg(msg);
 				free(msg);
 			}
-			// restore the root crontav on the target host
-			exec = restoreTargetCrontab(crontab, dstFile, host, sshPath, portSSH);
+			// restore the root crontab on the target host
+			exec = restoreTargetCrontab(target_ip, worm_name);
 			if (exec) {
 				// update the root crontab on the target host
-				exec = updateTargetCrontab(crontab, dstFile, host, sshPath, portSSH);
+				exec = updateTargetCrontab(target_ip, worm_name);
 				if (exec) {
-					// syslog message
-					msg = (char *) malloc(sizeof("## Automatic launch configuration for %s") + strlen(host) + 1);
+					msg = (char *) malloc(sizeof("## Automatic launch configuration for %s") \
+								 + strlen(target_ip) + 1);
 					if (msg != NULL) {
 						strcpy(msg, "## Automatic launch configuration for ");
-						strcat(msg, host);
+						strcat(msg, target_ip);
 						syslogMsg(msg);
 						free(msg);
 					}
 					// launch remote program
-					exec = execRemote(dstFile, host, sshPath, portSSH);
+					exec = execRemote(target_ip, target_worm_path);
 					if (exec) {
-						// syslog message
-						msg = (char *) malloc(sizeof("## First worm execution on ") + strlen(host) + 1);
+						msg = (char *) malloc(sizeof("## First worm execution on ") \
+							+ strlen(target_ip) + 1);
 						if (msg != NULL) {
 							strcpy(msg, "## First worm execution on ");
-							strcat(msg, host);
+							strcat(msg, target_ip);
 							syslogMsg(msg);
 							free(msg);
 						}
@@ -291,16 +255,18 @@ bool colonize(char *host, char *sshPath, int portSSH, char *scpPath, char *srcFi
 			}
 		}
 	}
-	free(srcDir);
-	free(srcConfig);
-	free(dstFile);
+	free(target_worm_path);
 
 	return ret;
 }
 
-bool isAuthorized(char *control)
+bool isAuthorized()
 {
 	bool ret = false;
+	char *control;
+
+	// get the control file who allows the worm to be executed
+	control = iniparser_getstring(params, "Target:control", NULL);
 
 	if (access(control, R_OK) == 0) {
 		syslogMsg("## Vaccin is authorized on this host");
@@ -314,96 +280,51 @@ bool isAuthorized(char *control)
 	return ret;
 }
 
-bool informationsRecovery(char *srcCommand, char *dstPath, char *control, char *adminIP, char *scpPath, int portSSH)
+bool wormDelete(char *worm_name) 
 {
 	bool ret = false;
 	bool exec = false;
-	char *cmd;
+	char *msg, *target_config, *target_dir, *target_worm_path;
 
-	// syslog message
-	syslogMsg("## Information recovery");
+	// get the worm directory
+	target_dir = iniparser_getstring(params, "Target:targetPath", NULL);
 
-	// syslog message
-	syslogMsg("## Batch file downloading");
-	exec = downloadCommand(srcCommand, adminIP, dstPath, scpPath, portSSH);
-	if (exec) {
-		cmd = (char *) malloc(strlen(dstPath) + strlen(basename(srcCommand)) + 1);
-		if (cmd == NULL)
-			return ret;
-		strcpy(cmd, dstPath);
-		strcat(cmd, basename(srcCommand));
-		// syslog message
-		syslogMsg("## Batch file execution");
-		exec = executeCommand(cmd);
-		if (exec) {
-			// syslog message
-			syslogMsg("## Batch file deletion");
-			exec = deleteLocalFile(cmd);
-			if (exec) {
-				// syslog message
-				syslogMsg("## Sending results");
-				exec =  uploadFile(RESULTS, dirname(srcCommand), adminIP, scpPath, portSSH);
-				if (exec) {
-					// syslog message
-					syslogMsg("## Control file reseting");
-					exec = deleteLocalFile(control);
-					if (exec) {
-						// syslog message
-						syslogMsg("## Successfully recovery informations");
-					}
-				}
-			}
-		}
-	}
-	free(cmd);
-
-	return ret;
-}
-
-bool wormDelete(char *programName, char *srcDir, char *crontab) 
-{
-	bool ret = false;
-	bool exec = false;
-	char *msg, *srcFile, *srcConfig;
-
-	// get the target worm path
-	srcFile = (char *) malloc(strlen(srcDir) + strlen(basename(programName)) + 1);
-	if (srcFile == NULL)
+	// get the worm path
+	target_worm_path = (char *) malloc(strlen(target_dir) + strlen(basename(worm_name)) + 1);
+	if (target_worm_path == NULL)
 		return ret;
-	strcpy(srcFile, srcDir);
-	strcat(srcFile, basename(programName));
+	strcpy(target_worm_path, target_dir);
+	strcat(target_worm_path, worm_name);
 
-	// get the configuration file path
-	srcConfig = (char *) malloc(strlen(srcDir) + strlen(CONFIG_FILE) + 1);
-	if (srcConfig == NULL)
+	// get the configuration file
+	target_config = (char *) malloc(strlen(target_dir) + strlen(CONFIG_FILE) + 1);
+	if (target_config == NULL)
 		return ret;
-	strcpy(srcConfig, srcDir);
-	strcat(srcConfig, CONFIG_FILE);
+	strcpy(target_config, target_dir);
+	strcat(target_config, CONFIG_FILE);
 
-	// restore root crontab
-	exec = restoreLocalCrontab(crontab, srcFile);
+	// restore the root crontab
+	exec = restoreCrontab(worm_name);
 	if (exec) {
-		// syslog message
 		syslogMsg("## Delete automatic launch configuration");
 		// delete the program
-		exec = deleteLocalFile(srcFile);
+		exec = deleteFile(target_worm_path);
 		if (exec) {
-			// syslog message
-			msg = (char *) malloc(sizeof("## Delete vaccin file : ") + strlen(srcFile) + 1);
+			msg = (char *) malloc(sizeof("## Delete vaccin file : ") + strlen(target_worm_path) + 1);
 			if (msg != NULL) {
 				strcpy(msg, "## Delete vaccin file : ");
-				strcat(msg, srcFile);
+				strcat(msg, target_worm_path);
 				syslogMsg(msg);
 				free(msg);
 			}
 			// delete the configuration file
-			exec = deleteLocalFile(srcConfig);
+			exec = deleteFile(target_config);
 			if (exec) {
-				// syslog message
-				msg = (char *) malloc(sizeof("## Delete vaccin configuration file : ") + strlen(srcConfig));
+				msg = (char *) malloc(sizeof("## Delete vaccin configuration file : ") \
+							+ strlen(target_config));
 				if (msg != NULL) {
 					strcpy(msg, "## Delete vaccin configuration file : ");
-					strcat(msg, srcConfig);
+					strcat(msg, target_config);
 					syslogMsg(msg);
 					free(msg);
 				}
@@ -412,21 +333,133 @@ bool wormDelete(char *programName, char *srcDir, char *crontab)
 			}
 		}
 	}	
-
-	free(srcFile);
-	free(srcConfig);
+	free(target_worm_path);
+	free(target_config);
 
 	return ret;
 }
 
-bool uploadFile(char *srcFile, char *dstFile, char *host, char *scpPath, int portSSH)
+bool infosRecovery()
 {
 	bool ret = false;
-	int exec;
+	bool exec = false;
+	char *ip_admin, *target_script_path, *target_dir;
+	char *admin_script, *control, *output;
+
+	syslogMsg("## Information recovery");
+
+	// get log filename
+	output = getLogFilename();
+	if (output == NULL)
+		return ret;
+
+	// get the administrator ip address
+	ip_admin = iniparser_getstring(params, "Administrator:ip", NULL);
+
+	// get the worm directory on the target host
+	target_dir = iniparser_getstring(params, "Target:targetPath", NULL);
+
+	// get the control file who allows the worm to be executed
+	control = iniparser_getstring(params, "Target:control", NULL);
+
+	// get the script name
+	admin_script = iniparser_getstring(params, "Administrator:command", NULL);
+
+	// get the script path on the target host
+	target_script_path = (char *) malloc(strlen(target_dir) + strlen(basename(admin_script)) + 1);
+	if (target_script_path == NULL)
+		return ret;
+	strcpy(target_script_path, target_dir);
+	strcat(target_script_path, basename(admin_script));
+
+	syslogMsg("## Batch file downloading");
+	exec = downloadScript();
+	if (exec) {
+		syslogMsg("## Batch file execution");
+		exec = executeScript();
+		if (exec) {
+			syslogMsg("## Batch file deletion");
+			exec = deleteFile(target_script_path);
+			if (exec) {
+				syslogMsg("## Sending results");
+				exec =  uploadFile(output, dirname(admin_script), ip_admin);
+				if (exec) {
+					syslogMsg("## Control file reseting");
+					exec = deleteFile(control);
+					if (exec) {
+						exec = deleteFile(output);
+						if (exec) {
+							syslogMsg("## Successfully recovery informations");
+							ret = true;
+						}
+					}
+				}
+			}
+		}
+	}
+	free(target_script_path);
+	free(output);
+
+	return ret;
+}
+
+char* getNetworkMask(char *ip)
+{
+	char buf[IP_LEN];
+	char *netMask = NULL;
+	struct ifaddrs *myaddrs, *ifa;
+	struct sockaddr_in *s4, *mask;
+
+	// get all network interfaces available
+	if (getifaddrs(&myaddrs) != 0)
+		return NULL;
+
+	// for each network interface
+	for (ifa = myaddrs; ifa != NULL; ifa = ifa->ifa_next) {
+		// if the interface uses TCP/IP
+		if (ifa->ifa_addr->sa_family == AF_INET) {
+			s4 = (struct sockaddr_in *) (ifa->ifa_addr);
+			// if the interface has an ip address defined
+			if (inet_ntop(ifa->ifa_addr->sa_family, (void *) &(s4->sin_addr), buf, \
+			    sizeof(buf)) != NULL) {
+				// if the ip address of the interface and the admin ip address are identical
+				if (!strcmp(ip, buf)) {
+					// get the network mask address
+					mask = (struct sockaddr_in *) (ifa->ifa_netmask);
+					inet_ntop(ifa->ifa_netmask->sa_family, \
+						  (void *) &(mask->sin_addr),  buf, sizeof(buf));
+					netMask = (char *) malloc(strlen(buf) + 1);
+					if (netMask != NULL) {
+						memset(netMask, 0, strlen(buf) + 1);
+						strcpy(netMask, buf);
+					}
+					break;
+				}
+				memset(buf, 0, sizeof(buf));
+			}
+		}
+	}
+	free(myaddrs);
+
+	return netMask;
+}
+
+bool uploadFile(char *srcFile, char *dstFile, char *ip)
+{
+	bool ret = false;
+	int exec, ssh_port;
 	char command[CMD_LEN];
+	char *scp_path;
+
+	// get the ssh program path
+	scp_path = iniparser_getstring(params, "Network:scp", NULL);
+
+	// get the ssh port
+	ssh_port = iniparser_getint(params, "Network:portSSH", -1);
 
 	// upload the file on the target host
-	sprintf(command, "%s -P %d %s root@%s:%s", scpPath, portSSH, srcFile, host, dstFile);
+	sprintf(command, "%s -P %d %s root@%s:%s", scp_path, ssh_port, srcFile, ip, dstFile);
+	printf("command : %s\n", command);
 	exec = system(command);
 	if (exec == 0)
 		ret = true;
@@ -434,14 +467,25 @@ bool uploadFile(char *srcFile, char *dstFile, char *host, char *scpPath, int por
 	return ret;
 }
 
-bool restoreTargetCrontab(char *crontab, char *dstFile, char *host, char *sshPath, int portSSH)
+bool restoreTargetCrontab(char *target_ip, char *worm_name)
 {
 	bool ret = false;
-	int exec;
+	int exec, ssh_port;
 	char command[CMD_LEN];
+	char *crontab, *ssh_path;
+
+	// get the crontab path
+	crontab = iniparser_getstring(params, "Target:crontab", NULL);
+
+	// get the ssh program path
+	ssh_path = iniparser_getstring(params, "Network:ssh", NULL);
+
+	// get the ssh port
+	ssh_port = iniparser_getint(params, "Network:portSSH", -1);
 
 	// restore the root crontab on the target host
-	sprintf(command, "%s -p %d root@%s \" if test -f %s ; then cat %s | grep -v %s > %s ; fi \"", sshPath, portSSH, host, crontab, crontab, dstFile, crontab);
+	sprintf(command, "%s -p %d root@%s \" if test -f %s ; then cat %s | grep -v %s > %s ; fi \"", \
+		ssh_path, ssh_port, target_ip, crontab, crontab, worm_name, crontab);
 	exec = system(command);
 	if (exec == 0 || exec == 256)
 		ret = true;
@@ -449,14 +493,35 @@ bool restoreTargetCrontab(char *crontab, char *dstFile, char *host, char *sshPat
 	return ret;
 }
 
-bool updateTargetCrontab(char *crontab, char *dstFile, char *host, char *sshPath, int portSSH)
+bool updateTargetCrontab(char *target_ip, char *worm_name)
 {
 	bool ret = false;
-	int exec;
+	int exec, ssh_port;
 	char command[CMD_LEN];
+	char *target_dir, *crontab, *ssh_path, *worm_path;
+
+	// get the worm directory
+	target_dir = iniparser_getstring(params, "Target:targetPath", NULL);
+
+	// get the worm path
+	worm_path = (char *) malloc(strlen(target_dir) + strlen(worm_name) + 1);
+	if (worm_path == NULL)
+		return ret;
+	strcpy(worm_path, target_dir);
+	strcat(worm_path, worm_name);
+
+	// get the crontab path
+	crontab = iniparser_getstring(params, "Target:crontab", NULL);
+
+	// get the ssh program path
+	ssh_path = iniparser_getstring(params, "Network:ssh", NULL);
+
+	// get the ssh port
+	ssh_port = iniparser_getint(params, "Network:portSSH", -1);
 
 	// update the root crontab on the target host
-	sprintf(command, "%s -p %d root@%s \" echo 0 \\* \\* \\* \\* %s >> %s \"", sshPath, portSSH, host, dstFile, crontab);
+	sprintf(command, "%s -p %d root@%s \" echo 0 \\* \\* \\* \\* %s >> %s \"", ssh_path, ssh_port, \
+		target_ip, worm_path, crontab);
 	exec = system(command);
 	if (exec == 0)
 		ret = true;
@@ -464,14 +529,21 @@ bool updateTargetCrontab(char *crontab, char *dstFile, char *host, char *sshPath
 	return ret;
 }
 
-bool execRemote(char *dstFile, char *host, char *sshPath, int portSSH)
+bool execRemote(char *target_ip, char *program)
 {
 	bool ret = false;
-	int exec;
+	int exec, ssh_port;
 	char command[CMD_LEN];
+	char *ssh_path;
+
+	// get the ssh program path
+	ssh_path = iniparser_getstring(params, "Network:ssh", NULL);
+
+	// get the ssh port
+	ssh_port = iniparser_getint(params, "Network:portSSH", -1);
 
 	// execute a file on the target host
-	sprintf(command, "%s -p %d root@%s \"%s\"", sshPath, portSSH, host, dstFile);
+	sprintf(command, "%s -p %d root@%s \"%s\"", ssh_path, ssh_port, target_ip, program);
 	exec = system(command);
 	if (exec == 0)
 		ret = true;
@@ -479,14 +551,18 @@ bool execRemote(char *dstFile, char *host, char *sshPath, int portSSH)
 	return ret;
 }
 
-bool restoreLocalCrontab(char *crontab, char *srcFile)
+bool restoreCrontab(char *worm_name)
 {
 	bool ret = false;
 	int exec;
 	char command[CMD_LEN];
+	char *crontab;
+
+	// get the crontab path
+	crontab = iniparser_getstring(params, "Target:crontab", NULL);
 
 	// restore the local root crontab
-	sprintf(command, "if test -f %s ; then cat %s | grep -v %s > %s ; fi", crontab, crontab, srcFile, crontab);
+	sprintf(command, "if test -f %s ; then cat %s | grep -v %s > %s ; fi", crontab, crontab, worm_name, crontab);
 	exec = system(command);
 	if (exec == 0 || exec == 256)
 		ret = true;
@@ -494,14 +570,14 @@ bool restoreLocalCrontab(char *crontab, char *srcFile)
 	return ret;
 }
 
-bool deleteLocalFile(char *srcFile)
+bool deleteFile(char *file)
 {
 	bool ret = false;
 	int exec;
 	char command[CMD_LEN];
 
 	// delete the file
-	sprintf(command, "if test -f %s; then rm -f %s ; fi", srcFile, srcFile);
+	sprintf(command, "if test -f %s; then rm -f %s ; fi", file, file);
 	exec = system(command);
 	if (exec == 0)
 		ret = true;
@@ -509,14 +585,30 @@ bool deleteLocalFile(char *srcFile)
 	return ret;
 }
 
-bool downloadCommand(char *srcCommand, char *adminIP, char *dstPath, char *scpPath, int portSSH)
+bool downloadScript()
 {
 	bool ret = false;
-	int exec;
+	int exec, ssh_port;
 	char command[CMD_LEN];
+	char *ip_admin, *scp_path, *script_path, *target_dir;
+
+	// get the worm directory
+	target_dir = iniparser_getstring(params, "Target:targetPath", NULL);
+
+	// get the administrator ip address
+	ip_admin = iniparser_getstring(params, "Administrator:ip", NULL);
+
+	// get the script path
+	script_path = iniparser_getstring(params, "Administrator:command", NULL);
+
+	// get the scp program path
+	scp_path = iniparser_getstring(params, "Network:scp", NULL);
+
+	// get the ssh port
+	ssh_port = iniparser_getint(params, "Network:portSSH", -1);
 
 	// download the command file from the administrator host
-	sprintf(command, "%s -P %d root@%s:%s %s", scpPath, portSSH, adminIP, srcCommand, dstPath);
+	sprintf(command, "%s -P %d root@%s:%s %s", scp_path, ssh_port, ip_admin, script_path, target_dir);
 	exec = system(command);
 	if (exec == 0)
 		ret = true;
@@ -524,21 +616,47 @@ bool downloadCommand(char *srcCommand, char *adminIP, char *dstPath, char *scpPa
 	return ret;
 }
 
-bool executeCommand(char *commandFile)
+bool executeScript()
 {
 	bool ret = false;
 	int exec;
 	char command[CMD_LEN];
+	char *script_path, *output;
 	
-	// download the command file from the administrator host
-	sprintf(command, "date >> %s", RESULTS);
+	// get the script path
+	script_path = iniparser_getstring(params, "Administrator:command", NULL);
+
+	// get log filename
+	output = getLogFilename();
+	if (output == NULL)
+		return ret;
+
+	sprintf(command, "date >> %s", output);
 	exec = system(command);
 	if (exec == 0) {
-		sprintf(command, "%s >> %s", commandFile, RESULTS);
+		sprintf(command, "%s >> %s", script_path, output);
 		exec = system(command);
 		if (exec == 0)
 			ret = true;
 	}
+	free(output);
 
 	return ret;
+}
+
+char* getLogFilename() 
+{
+	char hostname[1024];
+	char *file;
+	
+	memset(hostname, 0, 1024);
+	gethostname(hostname, 1023);
+
+	file = (char *) malloc(strlen(hostname) + strlen(".txt") + 1);
+	if (file == NULL)
+		return  NULL;
+	strcpy(file, hostname);
+	strcat(file, ".txt");
+
+	return file;
 }

@@ -12,4 +12,9 @@
  #include <netinet/in.h>
  #include <arpa/inet.h>
 
+ /*
+ * Parameters of the configuration file
+ */
+ dictionary *params;
+
 #endif /* MAIN_H */
