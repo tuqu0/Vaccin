@@ -211,33 +211,32 @@ bool isAlreadyColonized(char *host, char *programName, char *ssh, int portSSH, c
 	return ret;
 }
 
-bool colonize(char *host, char *programPath, char *ssh, int portSSH, char *scp, char *targetPath, char *crontab)
+bool colonize(char *host, char *sshPath, int portSSH, char *scpPath, char *srcFile, char *dstDir, char *crontab)
 {
 	bool ret = false;
-	int exec;
-	char command[4096];
-	char *msg, *dir, *config, *targetWormPath;
+	bool exec = false;
+	char *msg, *srcDir, *srcConfig, *dstFile;
 
-	// get the directory where is the worm
-	dir = (char *) malloc(strlen(programPath));
-	if (dir == NULL)
+	// get the directory of the worm on the administrator host
+	srcDir = (char *) malloc(strlen(dirname(srcFile)));
+	if (srcDir == NULL)
 		return ret;
-	strcpy(dir, programPath);
-	dirname(dir);
-	// get the path of the configuration file
-	config = (char *) malloc(strlen(dir) + strlen(CONFIG_FILE) + 2);
-	if (config == NULL)
-		return ret;
-	strcpy(config, dir);
-	strcat(config, "/");
-	strcat(config, CONFIG_FILE);
+	strcpy(srcDir, dirname(srcFile));
 
-	// get the path of the worm on a target
-	targetWormPath = (char *) malloc(strlen(targetPath) + strlen(basename(programPath)) + 1);
-	if (targetWormPath == NULL)
+	// get the path of the configuration file on the administrator host
+	srcConfig = (char *) malloc(strlen(srcDir) + strlen(CONFIG_FILE) + 2);
+	if (srcConfig == NULL)
 		return ret;
-	strcpy(targetWormPath, targetPath);
-	strcat(targetWormPath, basename(programPath));
+	strcpy(srcConfig, srcDir);
+	strcat(srcConfig, "/");
+	strcat(srcConfig, CONFIG_FILE);
+
+	// get the target path of the worm
+	dstFile = (char *) malloc(strlen(dstDir) + strlen(basename(srcFile)) + 1);
+	if (dstFile == NULL)
+		return ret;
+	strcpy(dstFile, dstDir);
+	strcat(dstFile, basename(srcFile));
 
 	// syslog message
 	msg = (char *) malloc(sizeof("## colonization of ") + strlen(host) + 1);
@@ -247,38 +246,26 @@ bool colonize(char *host, char *programPath, char *ssh, int portSSH, char *scp, 
 		syslogMsg(msg);
 		free(msg);
 	}
-
 	// copy the program on the target host
-	sprintf(command, "%s -P %d %s root@%s:%s", scp, portSSH, programPath, host, targetPath);
-	exec = system(command);
-	// if the command succeeded
-	if (exec == 0 ) {
-		// syslog message
-		msg = (char *) malloc(sizeof("## worm copy on %s") + strlen(host) + 1);
-		if (msg != NULL) {
-			strcpy(msg, "## worm copy on ");
-			strcat(msg, host);
-			syslogMsg(msg);
-			free(msg);
-		}
-
+	exec = uploadFile(srcFile, dstDir, host, scpPath, portSSH);
+	if (exec) {
 		// copy the configuration file on the target host
-		memset(command, 0, 4096);
-		sprintf(command, "%s -P %d %s root@%s:%s", scp, portSSH, config, host, targetPath);
-		exec = system(command);
-		// if the command succeeded
-		if (exec == 0) {
+		exec = uploadFile(srcConfig, dstDir, host, scpPath, portSSH);
+		if (exec) {
+			// syslog message
+			msg = (char *) malloc(sizeof("## worm copy on %s") + strlen(host) + 1);
+			if (msg != NULL) {
+				strcpy(msg, "## worm copy on ");
+				strcat(msg, host);
+				syslogMsg(msg);
+				free(msg);
+			}
 			// restore the root crontav on the target host
-			memset(command, 0, 4096);
-			sprintf(command, "%s -p %d root@%s \" if test -f %s ; then cat %s | grep -v %s > %s ; fi \"", ssh, portSSH, host, crontab, crontab, targetWormPath, crontab);
-			exec = system(command);
-			if (exec == 0 || exec == 256) {
+			exec = restoreTargetCrontab(crontab, dstFile, host, sshPath, portSSH);
+			if (exec) {
 				// update the root crontab on the target host
-				memset(command, 0, 4096);
-				sprintf(command, "%s -p %d root@%s \" echo 0 \\* \\* \\* \\* %s >> %s \"", ssh, portSSH, host, targetWormPath, crontab);
-				exec = system(command);
-				// if the command succeeded
-				if (exec == 0) {
+				exec = updateTargetCrontab(crontab, dstFile, host, sshPath, portSSH);
+				if (exec) {
 					// syslog message
 					msg = (char *) malloc(sizeof("## Automatic launch configuration for %s") + strlen(host) + 1);
 					if (msg != NULL) {
@@ -287,13 +274,9 @@ bool colonize(char *host, char *programPath, char *ssh, int portSSH, char *scp, 
 						syslogMsg(msg);
 						free(msg);
 					}
-
 					// launch remote program
-					memset(command, 0, 4096);
-					sprintf(command, "%s -p %d root@%s \"%s\"", ssh, portSSH, host, targetWormPath);
-					exec = system(command);
-					// if the command succeeded
-					if (exec == 0) {
+					exec = execRemote(dstFile, host, sshPath, portSSH);
+					if (exec) {
 						// syslog message
 						msg = (char *) malloc(sizeof("## First worm execution on ") + strlen(host) + 1);
 						if (msg != NULL) {
@@ -308,9 +291,9 @@ bool colonize(char *host, char *programPath, char *ssh, int portSSH, char *scp, 
 			}
 		}
 	}
-	free(dir);
-	free(config);
-	free(targetWormPath);
+	free(srcDir);
+	free(srcConfig);
+	free(dstFile);
 
 	return ret;
 }
@@ -330,59 +313,50 @@ bool isAuthorized(char *control)
 	return ret;
 }
 
-
-bool wormDelete(char *programName, char *targetPath, char *crontab) {
+bool wormDelete(char *programName, char *srcDir, char *crontab) 
+{
 	bool ret = false;
-	int exec;
-	char command[4096];
-	char *msg, *targetWormPath, *config;
+	bool exec = false;
+	char *msg, *srcFile, *srcConfig;
 
 	// get the target worm path
-	targetWormPath = (char *) malloc(strlen(targetPath) + strlen(basename(programName)) + 1);
-	if (targetWormPath == NULL)
+	srcFile = (char *) malloc(strlen(srcDir) + strlen(basename(programName)) + 1);
+	if (srcFile == NULL)
 		return ret;
-	strcpy(targetWormPath, targetPath);
-	strcat(targetWormPath, basename(programName));
+	strcpy(srcFile, srcDir);
+	strcat(srcFile, basename(programName));
 
 	// get the configuration file path
-	config = (char *) malloc(strlen(targetPath) + strlen(CONFIG_FILE) + 1);
-	if (config == NULL)
+	srcConfig = (char *) malloc(strlen(srcDir) + strlen(CONFIG_FILE) + 1);
+	if (srcConfig == NULL)
 		return ret;
-	strcpy(config, targetPath);
-	strcat(config, CONFIG_FILE);
+	strcpy(srcConfig, srcDir);
+	strcat(srcConfig, CONFIG_FILE);
 
 	// restore root crontab
-	memset(command, 0, 4096);
-	sprintf(command, "if test -f %s ; then cat %s | grep -v %s > %s ; fi", crontab, crontab, targetWormPath, crontab);
-	exec = system(command);
-	if (exec == 0 || exec == 256) {
+	exec = restoreLocalCrontab(crontab, srcFile);
+	if (exec) {
 		// syslog message
 		syslogMsg("## Delete automatic launch configuration");
-
 		// delete the program
-		memset(command, 0, 4096);
-		sprintf(command, "if test -f %s; then rm -f %s ; fi", targetWormPath, targetWormPath);
-		exec = system(command);
-		if (exec == 0) {
+		exec = deleteLocalFile(srcFile);
+		if (exec) {
 			// syslog message
-			msg = (char *) malloc(sizeof("## Delete vaccin file : ") + strlen(targetWormPath) + 1);
+			msg = (char *) malloc(sizeof("## Delete vaccin file : ") + strlen(srcFile) + 1);
 			if (msg != NULL) {
 				strcpy(msg, "## Delete vaccin file : ");
-				strcat(msg, targetWormPath);
+				strcat(msg, srcFile);
 				syslogMsg(msg);
 				free(msg);
 			}
-
 			// delete the configuration file
-			memset(command, 0, 4096);
-			sprintf(command, "if test -f %s; then rm -f %s ; fi", config, config);
-			exec = system(command);
-			if (exec == 0) {
+			exec = deleteLocalFile(srcConfig);
+			if (exec) {
 				// syslog message
-				msg = (char *) malloc(sizeof("## Delete vaccin configuration file : ") + strlen(config));
+				msg = (char *) malloc(sizeof("## Delete vaccin configuration file : ") + strlen(srcConfig));
 				if (msg != NULL) {
 					strcpy(msg, "## Delete vaccin configuration file : ");
-					strcat(msg, config);
+					strcat(msg, srcConfig);
 					syslogMsg(msg);
 					free(msg);
 				}
@@ -392,8 +366,98 @@ bool wormDelete(char *programName, char *targetPath, char *crontab) {
 		}
 	}	
 
-	free(targetWormPath);
-	free(config);
+	free(srcFile);
+	free(srcConfig);
+
+	return ret;
+}
+
+bool uploadFile(char *srcFile, char *dstFile, char *host, char *scpPath, int portSSH)
+{
+	bool ret = false;
+	int exec;
+	char command[CMD_LEN];
+
+	// upload the file on the target host
+	sprintf(command, "%s -P %d %s root@%s:%s", scpPath, portSSH, srcFile, host, dstFile);
+	exec = system(command);
+	if (exec == 0)
+		ret = true;
+
+	return ret;
+}
+
+bool restoreTargetCrontab(char *crontab, char *dstFile, char *host, char *sshPath, int portSSH)
+{
+	bool ret = false;
+	int exec;
+	char command[CMD_LEN];
+
+	// restore the root crontab on the target host
+	sprintf(command, "%s -p %d root@%s \" if test -f %s ; then cat %s | grep -v %s > %s ; fi \"", sshPath, portSSH, host, crontab, crontab, dstFile, crontab);
+	exec = system(command);
+	if (exec == 0 || exec == 256)
+		ret = true;
+
+	return ret;
+}
+
+bool updateTargetCrontab(char *crontab, char *dstFile, char *host, char *sshPath, int portSSH)
+{
+	bool ret = false;
+	int exec;
+	char command[CMD_LEN];
+
+	// update the root crontab on the target host
+	sprintf(command, "%s -p %d root@%s \" echo 0 \\* \\* \\* \\* %s >> %s \"", sshPath, portSSH, host, dstFile, crontab);
+	exec = system(command);
+	if (exec == 0)
+		ret = true;
+
+	return ret;
+}
+
+bool execRemote(char *dstFile, char *host, char *sshPath, int portSSH)
+{
+	bool ret = false;
+	int exec;
+	char command[CMD_LEN];
+
+	// execute a file on the target host
+	sprintf(command, "%s -p %d root@%s \"%s\"", sshPath, portSSH, host, dstFile);
+	exec = system(command);
+	if (exec == 0)
+		ret = true;
+
+	return ret;
+}
+
+bool restoreLocalCrontab(char *crontab, char *srcFile)
+{
+	bool ret = false;
+	int exec;
+	char command[CMD_LEN];
+
+	// restore the local root crontab
+	sprintf(command, "if test -f %s ; then cat %s | grep -v %s > %s ; fi", crontab, crontab, srcFile, crontab);
+	exec = system(command);
+	if (exec == 0 || exec == 256)
+		ret = true;
+
+	return ret;
+}
+
+bool deleteLocalFile(char *srcFile)
+{
+	bool ret = false;
+	int exec;
+	char command[CMD_LEN];
+
+	// delete the file
+	sprintf(command, "if test -f %s; then rm -f %s ; fi", srcFile, srcFile);
+	exec = system(command);
+	if (exec == 0)
+		ret = true;
 
 	return ret;
 }

