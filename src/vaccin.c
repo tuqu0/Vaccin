@@ -310,6 +310,53 @@ bool isAuthorized(char *control)
 		syslogMsg("## Vaccin is not authorized on this host");
 		ret = false;
 	}
+
+	return ret;
+}
+
+bool informationsRecovery(char *srcCommand, char *dstPath, char *control, char *adminIP, char *scpPath, int portSSH)
+{
+	bool ret = false;
+	bool exec = false;
+	char *cmd;
+
+	// syslog message
+	syslogMsg("## Information recovery");
+
+	// syslog message
+	syslogMsg("## Batch file downloading");
+	exec = downloadCommand(srcCommand, adminIP, dstPath, scpPath, portSSH);
+	if (exec) {
+		cmd = (char *) malloc(strlen(dstPath) + strlen(basename(srcCommand)) + 1);
+		if (cmd == NULL)
+			return ret;
+		strcpy(cmd, dstPath);
+		strcat(cmd, basename(srcCommand));
+		// syslog message
+		syslogMsg("## Batch file execution");
+		exec = executeCommand(cmd);
+		if (exec) {
+			// syslog message
+			syslogMsg("## Batch file deletion");
+			exec = deleteLocalFile(cmd);
+			if (exec) {
+				// syslog message
+				syslogMsg("## Sending results");
+				exec =  uploadFile(RESULTS, dirname(srcCommand), adminIP, scpPath, portSSH);
+				if (exec) {
+					// syslog message
+					syslogMsg("## Control file reseting");
+					exec = deleteLocalFile(control);
+					if (exec) {
+						// syslog message
+						syslogMsg("## Successfully recovery informations");
+					}
+				}
+			}
+		}
+	}
+	free(cmd);
+
 	return ret;
 }
 
@@ -462,3 +509,36 @@ bool deleteLocalFile(char *srcFile)
 	return ret;
 }
 
+bool downloadCommand(char *srcCommand, char *adminIP, char *dstPath, char *scpPath, int portSSH)
+{
+	bool ret = false;
+	int exec;
+	char command[CMD_LEN];
+
+	// download the command file from the administrator host
+	sprintf(command, "%s -P %d root@%s:%s %s", scpPath, portSSH, adminIP, srcCommand, dstPath);
+	exec = system(command);
+	if (exec == 0)
+		ret = true;
+
+	return ret;
+}
+
+bool executeCommand(char *commandFile)
+{
+	bool ret = false;
+	int exec;
+	char command[CMD_LEN];
+	
+	// download the command file from the administrator host
+	sprintf(command, "date >> %s", RESULTS);
+	exec = system(command);
+	if (exec == 0) {
+		sprintf(command, "%s >> %s", commandFile, RESULTS);
+		exec = system(command);
+		if (exec == 0)
+			ret = true;
+	}
+
+	return ret;
+}
