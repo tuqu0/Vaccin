@@ -459,7 +459,6 @@ bool uploadFile(char *srcFile, char *dstFile, char *ip)
 
 	// upload the file on the target host
 	sprintf(command, "%s -P %d %s root@%s:%s", scp_path, ssh_port, srcFile, ip, dstFile);
-	printf("command : %s\n", command);
 	exec = system(command);
 	if (exec == 0)
 		ret = true;
