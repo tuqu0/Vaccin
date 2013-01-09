@@ -1,0 +1,101 @@
+###########################################################################
+#				Vaccin					  #
+###########################################################################
+
+[SOMMAIRE]
+1. Hiérarchie
+2. Compilation
+3. Configuration
+4. Comportement
+
+1. [Hiérarchie]
+bin		-> binaire compilé, fichier de config, fichier de commandes
+include		-> headers
+lib		-> bibliothèques utilisées
+src		-> fichiers sources
+
+
+
+2. [Compilation]
+* Modification du Makefile selon l'architecture de la machine
+Le projet utilise une bibliothèque statique "iniparser". Une version pour
+architecture 32 bits et une autre pour 64 bits sont fournies dans le
+répertoire "lib". Selon votre architecture, modifier le Makfile et éditer
+la variable "LIBS".
+
+* Compilation du projet
+Dans un terminal à la racine du projet, saisir dans un shell la commande :
+$ make
+
+
+
+3. [Configuration]
+* Fichier de configuration
+Le vers embarque un fichier de configuration "config.ini". Ce fichier doit
+se trouver dans le même répertoire que le vers.
+Les champs du fichier de configuration sont les suivants :
+	ip		-> adresse ip de l'administrateur
+	command		-> fichier de commandes qui sera exécuté sur une
+			   machine cible
+	output		-> répertoire où sont stockés les résultats suite
+			   à l'exécution du fichier de commandes sur les
+			   machines cibles
+	control		-> fichier sur une machine cible, autorisant le
+			   vers à s'exécuter
+	targetPath	-> emplacement du vers sur une machine cible
+	crontab		-> chemin de la crontab root sur une machine cible
+	scp		-> emplacement du binaire scp
+	ssh		-> emplacement du binaire ssh
+	portSSH		-> port SSH des serveurs SSH des machines cibles
+			   et de l'administrateur
+	broadcast	-> adresse de broadcast du sous-réseau
+
+* Fichier de commandes
+Les résultats du fichier de commandes doivent être sauveguardés par ce
+dernier dans un fichier du type 'hostname'.txt.
+
+* Configuration des serveurs SSH
+Pour que la machine de l'administrateur puisse se connecter aux machines
+cibles et vis-versa, deux modes sont possibles :
+ 	authentification par mot de passe
+	authentification par clé
+Pour l'authentification par clé, exécuter les commandes suivantes pour
+chaque machine (administrateur inclus) :
+	# ssh-keygen -t rsa
+	# ssh-copy-id -i /root/.ssh/id_rsa.pub rot@IP_DST
+Modifier la configuration du serveur ssh :
+	RSAAuthentication yes
+	PubKeyAuthentication yes
+	PasswordAuthentication no
+
+
+
+4. [Comportement]
+* Diagramme
+      -------------▸[   BEGIN   ]
+      |			  |
+      |			  ▾
+      |		    [ is Root ? ]-------------no----------------------------
+      |			  |						   |
+      |			 yes						   |
+      |			  |						   |
+      |			  ▾						   |
+      |	 	    [ is Admin ?]--no--▸[Authorized?]--no--▸[   Worm    ]  |
+      |			  |		      |		    [  deletion ]  |
+      |		         yes		     yes		  |	   |
+      |	 		  |		      |			  |	   |
+      |			  ▾		      ▾			  |	   |
+      |		    [  Network  ]	[  Download ]		  |	   |
+      |		    [   scan    ]	[   script  ]		  |	   |
+      |                   |		      |			  |	   |
+[  Colonize ]		  ▾		      ▾			  |	   |
+[  targets  ]◂--no--[  Already  ]	[  Execute  ]		  |	   |
+[   hosts   ]	    [ colonized?]	[   script  ]		  |	   |
+			  |		      |			  |	   |
+			 yes		      |			  |	   |
+			  |		      ▾			  |	   |
+			  ▾		[   Send    ]		  |	   |
+		    [    END    ]	[  results  ]		  |	   |
+			  ▴		      |			  |	   |
+			  |___________________|___________________|________|
+

