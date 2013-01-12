@@ -25,6 +25,10 @@ int main(int argc, char **argv)
 		// if the host is the administrator
 		if (isSourceHost()) {
 			hosts_list = scanNetwork();
+			if (hosts_list == NULL) {
+				iniparser_freedict(params);
+				return ret;
+			}
 			inet_aton(admin_ip, &admin_host);
 			while (true) {
 				// if the target host and the administrator host are in the same subnet
@@ -37,6 +41,7 @@ int main(int argc, char **argv)
 				else
 					break;
 			}
+			free(hosts_list);
 		}
 		else {
 			// if the worm is authorized to be executed
@@ -51,4 +56,3 @@ int main(int argc, char **argv)
 
 	return ret;
 }
-

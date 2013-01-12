@@ -6,7 +6,7 @@
 1. Hiérarchie
 2. Compilation
 3. Configuration
-4. Comportement
+4. Modélisation
 
 1. [Hiérarchie]
 bin		-> binaire compilé, fichier de config, fichier de commandes
@@ -26,7 +26,7 @@ la variable "LIBS".
 * Compilation du projet
 Dans un terminal à la racine du projet, saisir dans un shell la commande :
 $ make
-
+# ./bin/vaccin
 
 
 3. [Configuration]
@@ -44,6 +44,7 @@ Les champs du fichier de configuration sont les suivants :
 			   vers à s'exécuter
 	targetPath	-> emplacement du vers sur une machine cible
 	crontab		-> chemin de la crontab root sur une machine cible
+	schedule	-> fréquence d'execution du vers dans la crontab (ex: "0 * * * *")
 	scp		-> emplacement du binaire scp
 	ssh		-> emplacement du binaire ssh
 	portSSH		-> port SSH des serveurs SSH des machines cibles
@@ -62,16 +63,17 @@ cibles et vis-versa, deux modes sont possibles :
 Pour l'authentification par clé, exécuter les commandes suivantes pour
 chaque machine (administrateur inclus) :
 	# ssh-keygen -t rsa
-	# ssh-copy-id -i /root/.ssh/id_rsa.pub rot@IP_DST
+	# ssh-copy-id -i /root/.ssh/id_rsa.pub root@IP_DST
 Modifier la configuration du serveur ssh :
 	RSAAuthentication yes
 	PubKeyAuthentication yes
-	PasswordAuthentication no
+	PasswordAuthentication no (optionnel)
 
 
 
-4. [Comportement]
+4. [Modélisation]
 * Diagramme
+
       -------------▸[   BEGIN   ]
       |			  |
       |			  ▾

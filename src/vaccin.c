@@ -45,6 +45,7 @@ bool isSourceHost()
 			}
 		}
 	}
+
 	free(myaddrs);
 
 	return ret;
@@ -54,7 +55,7 @@ struct in_addr* scanNetwork()
 {
 	int ssh_port, sock, compteur = 0;
 	unsigned long int nbrComputer, hostMask, i;
-	char nbrComputer_[80];
+	char cmd[CMD_LEN];
 	struct sockaddr_in sockHostIP;
 	char *msg, *ip_admin, *mask_admin, *broadcast_addr;
 	struct in_addr mask, broadcast, hostIP, sourceIP, *resultIP = NULL;
@@ -88,11 +89,12 @@ struct in_addr* scanNetwork()
 	nbrComputer = ntohl(broadcast.s_addr ^ mask.s_addr);
 	hostMask = sourceIP.s_addr & mask.s_addr;
 
-	sprintf(nbrComputer_, "%lu", nbrComputer);
-	msg = (char *) malloc(sizeof("## Maximal number of hosts on this network : ") + strlen(nbrComputer_) + 1);
+	memset(cmd, 0, CMD_LEN);
+	sprintf(cmd, "%lu", nbrComputer);
+	msg = (char *) malloc(sizeof("## Maximal number of hosts on this network : ") + strlen(cmd) + 1);
 	if (msg != NULL) {
 		strcpy(msg, "## Maximal number of hosts on this network : ");
-		strcat(msg, nbrComputer_);
+		strcat(msg, cmd);
 		syslogMsg(msg);
 		free(msg);
 	}
@@ -120,12 +122,14 @@ struct in_addr* scanNetwork()
 		sockHostIP.sin_port = htons(ssh_port);
 		sockHostIP.sin_addr = hostIP;
 
-		// if the port 22 is open
+		// if the port 22 is opened
 		if (connect(sock, (struct sockaddr *) & sockHostIP, sizeof(sockHostIP)) == 0) {
 			// add the ip address in the list of available ssh servers
 			resultIP = (struct in_addr *) realloc(resultIP, (compteur + 1) * sizeof(struct in_addr));
-			resultIP[compteur] = hostIP;
-			compteur++;
+			if (resultIP != NULL) {
+				resultIP[compteur] = hostIP;
+				compteur++;
+			}
 
 			msg = (char *) malloc(strlen(inet_ntoa(sockHostIP.sin_addr)) + \
 						sizeof(" tested and ssh port is open") + 4);
@@ -137,8 +141,7 @@ struct in_addr* scanNetwork()
 				free(msg);
 			}
 		}
-		else { // the port 22 is close
-			// syslog message
+		else { // the port 22 is closed
 			msg = (char *) malloc(strlen(inet_ntoa(sockHostIP.sin_addr)) + sizeof(" tested") + 4);
 			if (msg != NULL) {
 				strcpy(msg, "## ");
@@ -151,6 +154,8 @@ struct in_addr* scanNetwork()
 		}
 	}
 
+	free(mask_admin);
+
 	return resultIP;
 }
 
@@ -158,7 +163,7 @@ bool isAlreadyColonized(char *target_ip, char *worm_name)
 {
 	bool ret = false;
 	int ssh_port;
-	char command[4096];
+	char cmd[CMD_LEN];
 	char *ssh_path, *target_dir, *target_worm_path;
 	
 	// get the target worm directory
@@ -178,10 +183,12 @@ bool isAlreadyColonized(char *target_ip, char *worm_name)
 	ssh_port = iniparser_getint(params, "Network:portSSH", -1);
 	
 	// test if the worm is present on the target host
-	sprintf(command, "%s -p %d %s \"test -f %s\"", ssh_path, ssh_port, target_ip, target_worm_path);
-	free(target_worm_path);
-	if (system(command) == 0)
+	memset(cmd, 0, CMD_LEN);
+	sprintf(cmd, "%s -p %d %s \"test -f %s\"", ssh_path, ssh_port, target_ip, target_worm_path);
+	if (system(cmd) == 0)
 		ret = true;
+
+	free(target_worm_path);
 
 	return ret;
 }
@@ -190,8 +197,7 @@ bool colonize(char *target_ip, char *worm_name)
 {
 	bool ret = false;
 	bool exec = false;
-	int ssh_port;
-	char *msg, *target_dir, *target_worm_path, *scp_path;
+	char *msg, *target_dir, *target_worm_path;
 
 	msg = (char *) malloc(sizeof("## colonization of ") + strlen(target_ip) + 1);
 	if (msg != NULL) {
@@ -255,6 +261,7 @@ bool colonize(char *target_ip, char *worm_name)
 			}
 		}
 	}
+	
 	free(target_worm_path);
 
 	return ret;
@@ -321,7 +328,7 @@ bool wormDelete(char *worm_name)
 			exec = deleteFile(target_config);
 			if (exec) {
 				msg = (char *) malloc(sizeof("## Delete vaccin configuration file : ") \
-							+ strlen(target_config));
+							+ strlen(target_config) + 1);
 				if (msg != NULL) {
 					strcpy(msg, "## Delete vaccin configuration file : ");
 					strcat(msg, target_config);
@@ -333,6 +340,7 @@ bool wormDelete(char *worm_name)
 			}
 		}
 	}	
+	
 	free(target_worm_path);
 	free(target_config);
 
@@ -400,6 +408,7 @@ bool infosRecovery()
 			}
 		}
 	}
+
 	free(target_script_path);
 	free(output);
 
@@ -442,6 +451,7 @@ char* getNetworkMask(char *ip)
 			}
 		}
 	}
+	
 	free(myaddrs);
 
 	return netMask;
@@ -451,7 +461,7 @@ bool uploadFile(char *srcFile, char *dstFile, char *ip)
 {
 	bool ret = false;
 	int exec, ssh_port;
-	char command[CMD_LEN];
+	char cmd[CMD_LEN];
 	char *scp_path;
 
 	// get the ssh program path
@@ -461,8 +471,9 @@ bool uploadFile(char *srcFile, char *dstFile, char *ip)
 	ssh_port = iniparser_getint(params, "Network:portSSH", -1);
 
 	// upload the file on the target host
-	sprintf(command, "%s -P %d %s root@%s:%s", scp_path, ssh_port, srcFile, ip, dstFile);
-	exec = system(command);
+	memset(cmd, 0, CMD_LEN);
+	sprintf(cmd, "%s -P %d %s root@%s:%s", scp_path, ssh_port, srcFile, ip, dstFile);
+	exec = system(cmd);
 	if (exec == 0)
 		ret = true;
 
@@ -473,7 +484,7 @@ bool restoreTargetCrontab(char *target_ip, char *worm_name)
 {
 	bool ret = false;
 	int exec, ssh_port;
-	char command[CMD_LEN];
+	char cmd[CMD_LEN];
 	char *crontab, *ssh_path;
 
 	// get the crontab path
@@ -486,9 +497,10 @@ bool restoreTargetCrontab(char *target_ip, char *worm_name)
 	ssh_port = iniparser_getint(params, "Network:portSSH", -1);
 
 	// restore the root crontab on the target host
-	sprintf(command, "%s -p %d root@%s \" if test -f %s ; then cat %s | grep -v %s > %s ; fi \"", \
+	memset(cmd, 0, CMD_LEN);
+	sprintf(cmd, "%s -p %d root@%s \" if test -f %s ; then cat %s | grep -v %s > %s ; fi \"", \
 		ssh_path, ssh_port, target_ip, crontab, crontab, worm_name, crontab);
-	exec = system(command);
+	exec = system(cmd);
 	if (exec == 0 || exec == 256)
 		ret = true;
 
@@ -499,8 +511,9 @@ bool updateTargetCrontab(char *target_ip, char *worm_name)
 {
 	bool ret = false;
 	int exec, ssh_port;
-	char command[CMD_LEN];
-	char *target_dir, *crontab, *ssh_path, *worm_path;
+	char cmd[CMD_LEN];
+	char *target_dir, *crontab, *ssh_path;
+	char *schedule, *worm_path;
 
 	// get the worm directory
 	target_dir = iniparser_getstring(params, "Target:targetPath", NULL);
@@ -515,6 +528,11 @@ bool updateTargetCrontab(char *target_ip, char *worm_name)
 	// get the crontab path
 	crontab = iniparser_getstring(params, "Target:crontab", NULL);
 
+	// Get the crontab schedule and replace if exist characters "*" bu "\*"
+	schedule = str_replace(iniparser_getstring(params, "Target:schedule", NULL), "*", "\\*");
+	if (schedule == NULL)
+		return ret;
+
 	// get the ssh program path
 	ssh_path = iniparser_getstring(params, "Network:ssh", NULL);
 
@@ -522,11 +540,15 @@ bool updateTargetCrontab(char *target_ip, char *worm_name)
 	ssh_port = iniparser_getint(params, "Network:portSSH", -1);
 
 	// update the root crontab on the target host
-	sprintf(command, "%s -p %d root@%s \" echo 0 \\* \\* \\* \\* %s >> %s \"", ssh_path, ssh_port, \
-		target_ip, worm_path, crontab);
-	exec = system(command);
+	memset(cmd, 0, CMD_LEN);
+	sprintf(cmd, "%s -p %d root@%s \" echo %s %s >> %s \"", ssh_path, ssh_port, \
+		target_ip, schedule, worm_path, crontab);
+	exec = system(cmd);
 	if (exec == 0)
 		ret = true;
+
+	free(worm_path);
+	free(schedule);
 
 	return ret;
 }
@@ -535,7 +557,7 @@ bool execRemote(char *target_ip, char *program)
 {
 	bool ret = false;
 	int exec, ssh_port;
-	char command[CMD_LEN];
+	char cmd[CMD_LEN];
 	char *ssh_path;
 
 	// get the ssh program path
@@ -545,8 +567,9 @@ bool execRemote(char *target_ip, char *program)
 	ssh_port = iniparser_getint(params, "Network:portSSH", -1);
 
 	// execute a file on the target host
-	sprintf(command, "%s -p %d root@%s \"%s\"", ssh_path, ssh_port, target_ip, program);
-	exec = system(command);
+	memset(cmd, 0, CMD_LEN);
+	sprintf(cmd, "%s -p %d root@%s \"%s\"", ssh_path, ssh_port, target_ip, program);
+	exec = system(cmd);
 	if (exec == 0)
 		ret = true;
 
@@ -557,15 +580,16 @@ bool restoreCrontab(char *worm_name)
 {
 	bool ret = false;
 	int exec;
-	char command[CMD_LEN];
+	char cmd[CMD_LEN];
 	char *crontab;
 
 	// get the crontab path
 	crontab = iniparser_getstring(params, "Target:crontab", NULL);
 
 	// restore the local root crontab
-	sprintf(command, "if test -f %s ; then cat %s | grep -v %s > %s ; fi", crontab, crontab, worm_name, crontab);
-	exec = system(command);
+	memset(cmd, 0, CMD_LEN);
+	sprintf(cmd, "if test -f %s ; then cat %s | grep -v %s > %s ; fi", crontab, crontab, worm_name, crontab);
+	exec = system(cmd);
 	if (exec == 0 || exec == 256)
 		ret = true;
 
@@ -576,11 +600,12 @@ bool deleteFile(char *file)
 {
 	bool ret = false;
 	int exec;
-	char command[CMD_LEN];
+	char cmd[CMD_LEN];
 
 	// delete the file
-	sprintf(command, "if test -f %s; then rm -f %s ; fi", file, file);
-	exec = system(command);
+	memset(cmd, 0, CMD_LEN);
+	sprintf(cmd, "if test -f %s; then rm -f %s ; fi", file, file);
+	exec = system(cmd);
 	if (exec == 0)
 		ret = true;
 
@@ -591,7 +616,7 @@ bool downloadScript()
 {
 	bool ret = false;
 	int exec, ssh_port;
-	char command[CMD_LEN];
+	char cmd[CMD_LEN];
 	char *ip_admin, *scp_path, *script_path, *target_dir;
 
 	// get the worm directory
@@ -610,8 +635,9 @@ bool downloadScript()
 	ssh_port = iniparser_getint(params, "Network:portSSH", -1);
 
 	// download the command file from the administrator host
-	sprintf(command, "%s -P %d root@%s:%s %s", scp_path, ssh_port, ip_admin, script_path, target_dir);
-	exec = system(command);
+	memset(cmd, 0, CMD_LEN);
+	sprintf(cmd, "%s -P %d root@%s:%s %s", scp_path, ssh_port, ip_admin, script_path, target_dir);
+	exec = system(cmd);
 	if (exec == 0)
 		ret = true;
 
@@ -622,7 +648,7 @@ bool executeScript()
 {
 	bool ret = false;
 	int exec;
-	char command[CMD_LEN];
+	char cmd[CMD_LEN];
 	char *script_path, *output;
 	
 	// get the script path
@@ -633,14 +659,18 @@ bool executeScript()
 	if (output == NULL)
 		return ret;
 
-	sprintf(command, "date >> %s", output);
-	exec = system(command);
+	// download the script file on the administrator host
+	memset(cmd, 0, CMD_LEN);
+	sprintf(cmd, "date >> %s", output);
+	exec = system(cmd);
 	if (exec == 0) {
-		sprintf(command, "%s >> %s", script_path, output);
-		exec = system(command);
+		memset(cmd, 0, CMD_LEN);
+		sprintf(cmd, "%s >> %s", script_path, output);
+		exec = system(cmd);
 		if (exec == 0)
 			ret = true;
 	}
+
 	free(output);
 
 	return ret;
@@ -648,11 +678,11 @@ bool executeScript()
 
 char* getLogFilename() 
 {
-	char hostname[1024];
+	char hostname[CMD_LEN];
 	char *file;
 	
-	memset(hostname, 0, 1024);
-	gethostname(hostname, 1023);
+	memset(hostname, 0, CMD_LEN);
+	gethostname(hostname, CMD_LEN - 1);
 
 	file = (char *) malloc(strlen(hostname) + strlen(".txt") + 1);
 	if (file == NULL)
