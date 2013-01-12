@@ -8,7 +8,7 @@ LIBS= ./lib/libiniparser32bits.a
 OBJS=$(FILES:.c=.o)
 DIST= puydoyeux_vincent-vaccin
 
-MyVirus: $(OBJS)
+all: $(OBJS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o ./bin/$(EXEC) $(OBJS) $(LIBS)
 
 .c.o:
@@ -22,5 +22,6 @@ dist: clean
 	mkdir ../$(DIST)
 	cp -r ../$(PROJ)/*  ../$(DIST)
 	rm -rf ../$(DIST).tar.gz 2>/dev/null
-	tar cvfj ../$(DIST).tar.gz ../$(DIST) 
+	zip -9 -r ../$(DIST).zip ../$(DIST) 
 	rm -rf ../$(DIST)
+	md5sum ../$(DIST).zip
